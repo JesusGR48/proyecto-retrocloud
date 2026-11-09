@@ -1,0 +1,72 @@
+# =====================================================================
+#  RetroCloud · Archivos que NO van al repositorio
+# =====================================================================
+
+# ---------------------------------------------------------------------
+# 1. Contenido con derechos de autor
+#
+#    Las ROMs y los BIOS son obra de terceros: no se redistribuyen.
+#    Ademas GitHub rechaza archivos de mas de 100 MB, y un disco de
+#    PlayStation ronda los 600 MB.
+#
+#    Quien clone el proyecto carga su propio contenido desde el panel
+#    de administracion.
+# ---------------------------------------------------------------------
+storage/roms/
+storage/bios/
+
+# ---------------------------------------------------------------------
+# 2. Datos generados en tiempo de ejecucion
+#
+#    Son de cada instalacion: las partidas de un usuario no le sirven
+#    a nadie mas, y las sesiones son credenciales vivas.
+# ---------------------------------------------------------------------
+storage/saves/
+storage/capturas/
+storage/sesiones/
+storage/tmp/
+logs/
+
+# Portadas: las sube el administrador junto con cada juego, y suelen
+# ser material grafico con derechos.
+public/assets/portadas/
+
+# ---------------------------------------------------------------------
+# 3. Credenciales
+#
+#    config.php lleva el usuario y la contrasena de la base de datos.
+#    En su lugar se versiona config.example.php, que se copia y se
+#    rellena en cada instalacion.
+# ---------------------------------------------------------------------
+src/config.php
+
+# ---------------------------------------------------------------------
+# 4. Dependencias descargables
+#
+#    Los nucleos del emulador pesan cientos de MB y se obtienen del CDN
+#    o del repositorio oficial de EmulatorJS. No se versionan.
+# ---------------------------------------------------------------------
+public/emulatorjs/
+
+# ---------------------------------------------------------------------
+# 5. Ruido del sistema y los editores
+# ---------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+.vscode/
+.idea/
+*.bak
+*.bak-*
+*.log
+
+# Conservar las carpetas vacias para que la estructura exista al clonar
+!storage/roms/.gitkeep
+!storage/bios/.gitkeep
+!storage/saves/.gitkeep
+!storage/capturas/.gitkeep
+!storage/sesiones/.gitkeep
+!logs/.gitkeep
+!public/assets/portadas/.gitkeep

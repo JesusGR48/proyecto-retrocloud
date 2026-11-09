@@ -1,0 +1,221 @@
+# =====================================================================
+#  RetroCloud · Configuracion de Apache para el directorio publico
+# =====================================================================
+#  Este archivo documenta y aplica la configuracion a nivel de servidor.
+#  Requiere que Apache tenga AllowOverride All para este directorio
+#  (MAMP lo trae activado por defecto en htdocs).
+# =====================================================================
+
+# ---------------------------------------------------------------------
+# 1. Pagina de inicio
+# ---------------------------------------------------------------------
+DirectoryIndex index.php index.html
+
+# ---------------------------------------------------------------------
+# 1b. BIOS accesible por su nombre plano
+#
+#     El reproductor pide la firmware como `neogeo.zip`, sin barras ni
+#     parametros. No es un capricho: EmulatorJS, cuando se le indica que
+#     no descomprima el BIOS, usa la MISMA cadena de la URL como ruta
+#     donde escribirlo dentro del sistema de archivos del emulador. Una
+#     URL con barras hace que intente crear el archivo en carpetas que
+#     ahi dentro no existen, y revienta con ErrnoError.
+#
+#     Esta regla traduce ese nombre plano a la peticion real. La
+#     condicion !-f es importante: si algun dia existe de verdad un
+#     archivo con ese nombre en public/, se sirve el archivo y la regla
+#     no se aplica.
+# ---------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^([A-Za-z0-9._-]+\.(zip|bin|rom|bios|img|pup))$ api/bios.php?archivo=$1 [L,QSA]
+</IfModule>
+
+# ---------------------------------------------------------------------
+# 2. Sin listado de directorios
+#    Sin esto, entrar a /assets/portadas/ mostraria todos los archivos.
+# ---------------------------------------------------------------------
+Options -Indexes +FollowSymLinks
+
+# ---------------------------------------------------------------------
+# 3. Archivos que nunca deben servirse
+# ---------------------------------------------------------------------
+<FilesMatch "^\.|\.(sql|log|ini|md|bak|old|swp|dist|json)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Excepcion: el manifiesto de la PWA si debe servirse.
+<Files "manifest.webmanifest">
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+    <IfModule mod_mime.c>
+        ForceType application/manifest+json
+    </IfModule>
+</Files>
+
+# ---------------------------------------------------------------------
+# 4. Cabeceras de seguridad
+#    PHP ya las emite en src/bootstrap.php. Se repiten aqui para que
+#    tambien protejan a los archivos estaticos (CSS, JS, imagenes),
+#    que no pasan por PHP.
+# ---------------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+    # HSTS: solo se aplica cuando la peticion llego por HTTPS.
+    <If "%{HTTPS} == 'on'">
+        Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    </If>
+
+    # Oculta la version de PHP en las respuestas.
+    Header always unset X-Powered-By
+    Header unset Server
+</IfModule>
+
+# ---------------------------------------------------------------------
+# 5. Tipos MIME
+#    WebAssembly necesita su tipo correcto: si Apache sirve un .wasm
+#    como text/plain, el navegador rechaza compilarlo en streaming y
+#    el emulador no arranca.
+# ---------------------------------------------------------------------
+<IfModule mod_mime.c>
+    AddType application/wasm            .wasm
+    AddType application/javascript      .js
+    AddType application/manifest+json   .webmanifest
+    AddType image/webp                  .webp
+    AddType image/svg+xml               .svg
+    AddType font/woff2                  .woff2
+    AddType application/octet-stream    .nes .sfc .smc .gba .gb .gbc .n64 .z64 .state
+</IfModule>
+
+# ---------------------------------------------------------------------
+# 6. Compresion
+#    Las ROMs y las imagenes NO se comprimen: ya estan comprimidas o son
+#    binarios, y pasarlos por gzip solo gasta CPU sin reducir el tamano.
+# ---------------------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml
+    AddOutputFilterByType DEFLATE application/javascript application/json
+    AddOutputFilterByType DEFLATE application/manifest+json image/svg+xml
+    AddOutputFilterByType DEFLATE application/wasm
+</IfModule>
+
+# ---------------------------------------------------------------------
+# 7. Cache del navegador
+# ---------------------------------------------------------------------
+<IfModule mod_expires.c>
+    ExpiresActive On
+
+    # Estaticos: un mes.
+    #
+    # CSS y JavaScript quedan FUERA de esta lista a proposito: se
+    # gestionan mas abajo con Cache-Control "no-cache", para que una
+    # correccion llegue al navegador sin esperar a que caduque nada.
+    ExpiresByType image/png                 "access plus 1 month"
+    ExpiresByType image/jpeg                "access plus 1 month"
+    ExpiresByType image/webp                "access plus 1 month"
+    ExpiresByType image/svg+xml             "access plus 1 month"
+    ExpiresByType font/woff2                "access plus 1 year"
+
+    # Nucleos del emulador: cambian poco y pesan mucho.
+    ExpiresByType application/wasm          "access plus 1 year"
+
+    # El HTML generado por PHP nunca se cachea: lleva el token CSRF.
+    ExpiresByType text/html                 "access plus 0 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+    # El Service Worker debe revalidarse siempre, si no el navegador
+    # se queda con una version vieja y la PWA no se actualiza nunca.
+    <Files "sw.js">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+    </Files>
+
+    # -----------------------------------------------------------------
+    # CSS y JavaScript: revalidar siempre.
+    #
+    # Antes heredaban "1 mes" de la seccion de arriba, y eso provoco un
+    # problema real: al corregir un fallo, el navegador seguia usando la
+    # copia antigua durante semanas. En el telefono era peor todavia,
+    # porque no hay forma comoda de forzar una recarga.
+    #
+    # Las plantillas ya anaden ?v=<fecha> a estos archivos (la funcion
+    # recurso() de src/bootstrap.php), pero eso solo cubre los que se
+    # citan en el HTML: un modulo que importa a otro (emulador.js pide
+    # api.js) escapa a esa version.
+    #
+    # "no-cache" NO significa no guardar: el navegador conserva la copia
+    # y pregunta al servidor si sigue siendo valida. Si no cambio,
+    # Apache responde 304 Not Modified, que son unos pocos bytes. Se
+    # pierde muy poco rendimiento y se gana que un arreglo llegue
+    # siempre. Las imagenes, las fuentes y los nucleos .wasm conservan
+    # su cache larga, que es donde de verdad pesa.
+    # -----------------------------------------------------------------
+    <FilesMatch "\.(css|js|mjs)$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>
+
+# ---------------------------------------------------------------------
+# 8. Redireccion a HTTPS
+#    Descomenta este bloque cuando tengas el certificado SSL activo en
+#    Apache (ver docs/configuracion-ssl.md). En desarrollo se deja
+#    comentado porque MAMP sirve por http://localhost.
+# ---------------------------------------------------------------------
+# <IfModule mod_rewrite.c>
+#     RewriteEngine On
+#     RewriteCond %{HTTPS} off
+#     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# </IfModule>
+
+# ---------------------------------------------------------------------
+# 9. Limites de subida
+#
+#    Estas directivas MANDAN sobre el php.ini cuando PHP corre como
+#    modulo de Apache, que es el caso de MAMP. Es decir: aunque el
+#    php.ini diga 1024M, si aqui pone 128M el limite real es 128M.
+#    Conviene recordarlo, porque buscar el motivo en el php.ini
+#    equivocado cuesta un buen rato.
+#
+#    Los valores deben ser mayores que MAX_BYTES_ROM de src/config.php.
+#    Regla practica: post_max_size un poco por encima de
+#    upload_max_filesize, porque el cuerpo de la peticion incluye el
+#    archivo MAS el resto de campos del formulario.
+#
+#    Un disco de PlayStation ronda los 300-700 MB; de ahi el 1 GB.
+#    Con PHP-FPM en vez de modulo, estas lineas se ignoran y hay que
+#    ponerlas en el php.ini.
+# ---------------------------------------------------------------------
+<IfModule mod_php.c>
+    php_value upload_max_filesize 1024M
+    php_value post_max_size       1100M
+    php_value max_execution_time  600
+    php_value max_input_time      600
+    php_value memory_limit        512M
+</IfModule>
+
+<IfModule mod_php7.c>
+    php_value upload_max_filesize 1024M
+    php_value post_max_size       1100M
+    php_value max_execution_time  600
+    php_value max_input_time      600
+    php_value memory_limit        512M
+</IfModule>
+
+# ---------------------------------------------------------------------
+# 10. Paginas de error
+# ---------------------------------------------------------------------
+ErrorDocument 403 "403 - Acceso denegado"
+ErrorDocument 404 "404 - Pagina no encontrada"

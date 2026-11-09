@@ -1,0 +1,2223 @@
+/* =====================================================================
+   RetroCloud · Hoja de estilos principal
+   =====================================================================
+   Organizacion del archivo:
+
+     1. Variables (custom properties)   · CSS3
+     2. Reinicio y base
+     3. Tipografia
+     4. Layout: cabecera, contenedor, pie
+     5. Componentes: botones, tarjetas, formularios, avisos, modales
+     6. Catalogo (CSS Grid)
+     7. Reproductor del emulador
+     8. Panel de administracion (tablas)
+     9. Utilidades
+    10. Diseno responsivo (mobile first)
+    11. Accesibilidad y preferencias del usuario
+
+   Nota tecnica para la documentacion:
+     · Tecnicas CSS2 presentes: selectores de descendencia, pseudoclases
+       :hover/:focus, float para los elementos flotantes del pie,
+       position relative/absolute, box model, z-index.
+     · Tecnicas CSS3 presentes: custom properties, Flexbox, Grid,
+       media queries, transiciones, animaciones @keyframes, gradientes,
+       border-radius, box-shadow, backdrop-filter, clamp(), aspect-ratio.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. VARIABLES
+   --------------------------------------------------------------------- */
+:root {
+  /* Paleta oscura (tema por defecto) */
+  --fondo:            #0d0d16;
+  --fondo-alto:       #14141f;
+  --fondo-tarjeta:    #1a1a28;
+  --fondo-elevado:    #22223a;
+  --borde:            #2c2c42;
+  --borde-suave:      #232334;
+
+  --texto:            #ecedf5;
+  --texto-tenue:      #a2a3bd;
+  --texto-debil:      #6f7090;
+
+  --primario:         #7d5fff;
+  --primario-claro:   #9d85ff;
+  --primario-oscuro:  #5b3fd4;
+  --acento:           #00e5c0;
+  --acento-oscuro:    #00b899;
+
+  --exito:            #2ecc71;
+  --aviso:            #f39c12;
+  --error:            #ff5566;
+  --info:             #3498db;
+
+  /* Medidas */
+  --radio-sm:   6px;
+  --radio:      12px;
+  --radio-lg:   18px;
+  --radio-full: 999px;
+
+  --sombra-sm: 0 1px 3px rgba(0, 0, 0, .4);
+  --sombra:    0 6px 20px rgba(0, 0, 0, .35);
+  --sombra-lg: 0 16px 48px rgba(0, 0, 0, .5);
+  --brillo:    0 0 24px rgba(125, 95, 255, .35);
+
+  --ancho-max:  1280px;
+  --alto-barra: 64px;
+
+  --transicion: 180ms cubic-bezier(.4, 0, .2, 1);
+
+  --fuente: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fuente-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --fuente-titulo: "Press Start 2P", var(--fuente);
+}
+
+/* Tema claro: se activa con data-tema="claro" en <html>.
+   El atributo lo pone el JavaScript segun la preferencia guardada. */
+:root[data-tema="claro"] {
+  --fondo:         #f4f4f9;
+  --fondo-alto:    #ffffff;
+  --fondo-tarjeta: #ffffff;
+  --fondo-elevado: #ececf5;
+  --borde:         #d8d8e6;
+  --borde-suave:   #e6e6f0;
+
+  --texto:       #15152a;
+  --texto-tenue: #55566e;
+  --texto-debil: #8b8ca3;
+
+  --sombra-sm: 0 1px 3px rgba(20, 20, 45, .08);
+  --sombra:    0 6px 20px rgba(20, 20, 45, .10);
+  --sombra-lg: 0 16px 48px rgba(20, 20, 45, .16);
+  --brillo:    0 0 20px rgba(125, 95, 255, .22);
+}
+
+/* ---------------------------------------------------------------------
+   2. REINICIO Y BASE
+   --------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--fuente);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--texto);
+  background: var(--fondo);
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Textura de fondo sutil: dos gradientes radiales fijos. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(900px circle at 12% -5%,  rgba(125, 95, 255, .14), transparent 60%),
+    radial-gradient(700px circle at 92% 8%,   rgba(0, 229, 192, .09),  transparent 60%);
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  display: block;
+}
+
+/* ---------------------------------------------------------------------
+   El atributo `hidden` debe ganar siempre
+   ---------------------------------------------------------------------
+   El navegador aplica display:none a [hidden] desde su hoja de estilos
+   de usuario-agente, que tiene MENOS prioridad que cualquier `display`
+   que declaremos nosotros. Resultado: un `.aviso { display: flex }` o un
+   `.modal { display: grid }` siguen visibles aunque el JavaScript les
+   ponga el atributo `hidden`.
+
+   Esto causo un fallo real durante el desarrollo: la capa de carga del
+   emulador no se ocultaba nunca, tapaba el juego y se comia los clics.
+
+   Esta regla unica lo resuelve para todo el proyecto. Es uno de los
+   pocos usos legitimos de !important: no sobreescribe una decision de
+   diseno, restaura el comportamiento estandar de HTML.
+   --------------------------------------------------------------------- */
+[hidden] {
+  display: none !important;
+}
+
+a {
+  color: var(--primario-claro);
+  text-decoration: none;
+  transition: color var(--transicion);
+}
+
+a:hover {
+  color: var(--acento);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* ---------------------------------------------------------------------
+   3. TIPOGRAFIA
+   --------------------------------------------------------------------- */
+h1, h2, h3, h4 {
+  margin: 0 0 .6em;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -.02em;
+}
+
+/* clamp() = tipografia fluida sin escribir media queries para cada paso */
+h1 { font-size: clamp(1.7rem, 4.5vw, 2.6rem); }
+h2 { font-size: clamp(1.35rem, 3vw, 1.9rem); }
+h3 { font-size: clamp(1.1rem, 2.2vw, 1.3rem); }
+
+p { margin: 0 0 1em; }
+
+code,
+kbd,
+.mono {
+  font-family: var(--fuente-mono);
+  font-size: .88em;
+}
+
+kbd {
+  display: inline-block;
+  padding: .12em .45em;
+  border: 1px solid var(--borde);
+  border-bottom-width: 2px;
+  border-radius: var(--radio-sm);
+  background: var(--fondo-elevado);
+  font-size: .8em;
+  line-height: 1.5;
+}
+
+.titulo-pixel {
+  font-family: var(--fuente-titulo);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------------------
+   4. LAYOUT
+   --------------------------------------------------------------------- */
+.contenedor {
+  width: 100%;
+  max-width: var(--ancho-max);
+  margin-inline: auto;
+  padding-inline: 16px;
+}
+
+/* --- Barra superior --- */
+.barra {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  min-height: var(--alto-barra);
+  background: color-mix(in srgb, var(--fondo-alto) 85%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  border-bottom: 1px solid var(--borde);
+}
+
+/* Reserva por si el navegador no soporta color-mix() */
+@supports not (background: color-mix(in srgb, red 50%, blue)) {
+  .barra { background: var(--fondo-alto); }
+}
+
+.barra__inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: var(--alto-barra);
+}
+
+.marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1.12rem;
+  color: var(--texto);
+  letter-spacing: -.03em;
+  white-space: nowrap;
+}
+
+.marca:hover { color: var(--texto); }
+
+.marca__logo {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--primario), var(--acento));
+  display: grid;
+  place-items: center;
+  box-shadow: var(--brillo);
+}
+
+.marca__logo svg { width: 20px; height: 20px; }
+
+.marca em {
+  font-style: normal;
+  background: linear-gradient(90deg, var(--primario-claro), var(--acento));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.barra__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.barra__link {
+  padding: 8px 13px;
+  border-radius: var(--radio-sm);
+  color: var(--texto-tenue);
+  font-size: .93rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--transicion), color var(--transicion);
+}
+
+.barra__link:hover,
+.barra__link:focus-visible {
+  background: var(--fondo-elevado);
+  color: var(--texto);
+}
+
+.barra__link[aria-current="page"] {
+  color: var(--primario-claro);
+  background: color-mix(in srgb, var(--primario) 14%, transparent);
+}
+
+/* Boton hamburguesa: oculto en escritorio */
+.barra__menu {
+  display: none;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--fondo-tarjeta);
+  cursor: pointer;
+  place-items: center;
+}
+
+/* --- Contenido principal --- */
+.principal {
+  flex: 1 0 auto;
+  padding-block: 28px 56px;
+}
+
+/* --- Pie --- */
+.pie {
+  border-top: 1px solid var(--borde);
+  background: var(--fondo-alto);
+  padding-block: 28px;
+  color: var(--texto-debil);
+  font-size: .88rem;
+}
+
+.pie__inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 28px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* float: tecnica CSS2 clasica, aqui para la nota de licencia */
+.pie__nota {
+  float: right;
+  max-width: 48ch;
+  text-align: right;
+}
+
+/* ---------------------------------------------------------------------
+   5. COMPONENTES
+   --------------------------------------------------------------------- */
+
+/* --- Botones --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border: 1px solid transparent;
+  border-radius: var(--radio-sm);
+  background: var(--fondo-elevado);
+  color: var(--texto);
+  font-size: .94rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  user-select: none;
+  text-align: center;
+  transition: transform var(--transicion), background var(--transicion),
+              box-shadow var(--transicion), opacity var(--transicion);
+}
+
+.btn:hover  { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+
+.btn:disabled,
+.btn[aria-busy="true"] {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn--primario {
+  background: linear-gradient(135deg, var(--primario), var(--primario-oscuro));
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(125, 95, 255, .32);
+}
+
+.btn--primario:hover {
+  box-shadow: 0 7px 22px rgba(125, 95, 255, .46);
+}
+
+.btn--acento {
+  background: linear-gradient(135deg, var(--acento), var(--acento-oscuro));
+  color: #04231d;
+  box-shadow: 0 4px 14px rgba(0, 229, 192, .28);
+}
+
+.btn--fantasma {
+  background: transparent;
+  border-color: var(--borde);
+  color: var(--texto-tenue);
+}
+
+.btn--fantasma:hover {
+  border-color: var(--primario);
+  color: var(--texto);
+}
+
+.btn--peligro {
+  background: color-mix(in srgb, var(--error) 16%, transparent);
+  border-color: color-mix(in srgb, var(--error) 42%, transparent);
+  color: var(--error);
+}
+
+.btn--peligro:hover {
+  background: var(--error);
+  color: #fff;
+}
+
+.btn--bloque { width: 100%; }
+.btn--sm { padding: 7px 13px; font-size: .85rem; }
+.btn--icono { padding: 9px; width: 40px; height: 40px; }
+
+/* --- Tarjetas --- */
+.tarjeta {
+  background: var(--fondo-tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 22px;
+  box-shadow: var(--sombra-sm);
+}
+
+.tarjeta--plana { box-shadow: none; }
+
+.panel {
+  background: var(--fondo-tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-lg);
+  overflow: hidden;
+}
+
+.panel__cabecera {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--borde);
+  background: var(--fondo-alto);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.panel__cabecera h2,
+.panel__cabecera h3 { margin: 0; }
+
+.panel__cuerpo { padding: 22px; }
+
+/* --- Formularios --- */
+.campo { margin-bottom: 18px; }
+
+.campo__etiqueta {
+  display: block;
+  margin-bottom: 7px;
+  font-size: .89rem;
+  font-weight: 600;
+  color: var(--texto-tenue);
+}
+
+.campo__requerido { color: var(--error); }
+
+.entrada,
+.selector,
+.area {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--fondo);
+  color: var(--texto);
+  transition: border-color var(--transicion), box-shadow var(--transicion);
+}
+
+.entrada::placeholder,
+.area::placeholder { color: var(--texto-debil); }
+
+.entrada:focus,
+.selector:focus,
+.area:focus {
+  outline: none;
+  border-color: var(--primario);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primario) 24%, transparent);
+}
+
+/* :invalid solo se marca despues de que el usuario escribio algo, para
+   no pintar de rojo un formulario que todavia no ha tocado. */
+.entrada:not(:placeholder-shown):invalid,
+.entrada[aria-invalid="true"] {
+  border-color: var(--error);
+}
+
+.area { min-height: 110px; resize: vertical; }
+
+.campo__error {
+  display: block;
+  margin-top: 6px;
+  font-size: .82rem;
+  color: var(--error);
+  min-height: 1em;
+}
+
+.campo__ayuda {
+  display: block;
+  margin-top: 6px;
+  font-size: .82rem;
+  color: var(--texto-debil);
+}
+
+/* Subida de archivos con zona de arrastre */
+.zona-archivo {
+  position: relative;
+  display: block;
+  padding: 26px 18px;
+  border: 2px dashed var(--borde);
+  border-radius: var(--radio);
+  background: var(--fondo);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transicion), background var(--transicion);
+}
+
+.zona-archivo:hover,
+.zona-archivo.esta-sobre {
+  border-color: var(--primario);
+  background: color-mix(in srgb, var(--primario) 7%, var(--fondo));
+}
+
+.zona-archivo input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.zona-archivo__titulo { font-weight: 600; margin-bottom: 4px; }
+.zona-archivo__pista  { font-size: .84rem; color: var(--texto-debil); }
+
+/* Interruptor */
+.interruptor {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.interruptor input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.interruptor__pista {
+  width: 44px;
+  height: 24px;
+  flex: 0 0 44px;
+  border-radius: var(--radio-full);
+  background: var(--borde);
+  position: relative;
+  transition: background var(--transicion);
+}
+
+.interruptor__pista::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform var(--transicion);
+}
+
+.interruptor input:checked + .interruptor__pista { background: var(--primario); }
+.interruptor input:checked + .interruptor__pista::after { transform: translateX(20px); }
+.interruptor input:focus-visible + .interruptor__pista {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primario) 30%, transparent);
+}
+
+/* --- Avisos --- */
+.aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 16px;
+  border: 1px solid var(--borde);
+  border-left-width: 3px;
+  border-radius: var(--radio-sm);
+  background: var(--fondo-elevado);
+  font-size: .92rem;
+  margin-bottom: 18px;
+}
+
+.aviso--error  { border-left-color: var(--error);  color: var(--error); }
+.aviso--exito  { border-left-color: var(--exito);  color: var(--exito); }
+.aviso--alerta { border-left-color: var(--aviso);  color: var(--aviso); }
+.aviso--info   { border-left-color: var(--info);   color: var(--info); }
+
+.aviso__cuerpo { flex: 1; }
+.aviso strong { display: block; margin-bottom: 2px; }
+
+/* --- Etiquetas / insignias --- */
+.insignia {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radio-full);
+  background: var(--fondo-elevado);
+  border: 1px solid var(--borde);
+  font-size: .76rem;
+  font-weight: 600;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+
+.insignia--consola { color: #fff; border: none; }
+.insignia--exito   { color: var(--exito);  border-color: color-mix(in srgb, var(--exito) 40%, transparent); }
+.insignia--alerta  { color: var(--aviso);  border-color: color-mix(in srgb, var(--aviso) 40%, transparent); }
+.insignia--error   { color: var(--error);  border-color: color-mix(in srgb, var(--error) 40%, transparent); }
+
+/* --- Avisos flotantes (toasts) --- */
+.notificaciones {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  max-width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.notificacion {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 15px;
+  border: 1px solid var(--borde);
+  border-left: 3px solid var(--primario);
+  border-radius: var(--radio-sm);
+  background: var(--fondo-elevado);
+  box-shadow: var(--sombra-lg);
+  font-size: .9rem;
+  animation: entrar-derecha 260ms cubic-bezier(.2, .9, .3, 1);
+}
+
+.notificacion--exito { border-left-color: var(--exito); }
+.notificacion--error { border-left-color: var(--error); }
+.notificacion--info  { border-left-color: var(--info); }
+.notificacion.saliendo { animation: salir-derecha 200ms ease forwards; }
+
+@keyframes entrar-derecha {
+  from { opacity: 0; transform: translateX(26px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes salir-derecha {
+  to { opacity: 0; transform: translateX(26px); }
+}
+
+/* --- Modal --- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(5, 5, 12, .72);
+  backdrop-filter: blur(5px);
+  animation: aparecer 160ms ease;
+}
+
+.modal[hidden] { display: none; }
+
+.modal__caja {
+  width: 100%;
+  max-width: 460px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: var(--fondo-tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-lg);
+  box-shadow: var(--sombra-lg);
+  animation: subir 200ms cubic-bezier(.2, .9, .3, 1);
+}
+
+.modal__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.modal__cabecera h3 { margin: 0; flex: 1; }
+.modal__cuerpo { padding: 22px; }
+
+.modal__pie {
+  display: flex;
+  gap: 9px;
+  justify-content: flex-end;
+  padding: 16px 22px;
+  border-top: 1px solid var(--borde);
+  flex-wrap: wrap;
+}
+
+@keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
+@keyframes subir {
+  from { opacity: 0; transform: translateY(16px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* --- Cargador --- */
+.girador {
+  width: 18px;
+  height: 18px;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: girar 700ms linear infinite;
+  flex: 0 0 auto;
+}
+
+.girador--grande { width: 38px; height: 38px; border-width: 3px; }
+
+@keyframes girar { to { transform: rotate(360deg); } }
+
+/* Marcador de posicion mientras cargan los datos */
+.esqueleto {
+  background: linear-gradient(
+    90deg,
+    var(--fondo-elevado) 25%,
+    color-mix(in srgb, var(--fondo-elevado) 55%, var(--borde)) 50%,
+    var(--fondo-elevado) 75%
+  );
+  background-size: 200% 100%;
+  animation: brillar 1.3s linear infinite;
+  border-radius: var(--radio-sm);
+}
+
+@keyframes brillar {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* --- Estado vacio --- */
+.vacio {
+  text-align: center;
+  padding: 56px 20px;
+  color: var(--texto-tenue);
+}
+
+.vacio__icono {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 18px;
+  border-radius: var(--radio-lg);
+  background: var(--fondo-elevado);
+  display: grid;
+  place-items: center;
+  color: var(--texto-debil);
+}
+
+.vacio h3 { color: var(--texto); }
+
+/* ---------------------------------------------------------------------
+   6. CATALOGO
+   --------------------------------------------------------------------- */
+
+/* Portada / hero */
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radio-lg);
+  border: 1px solid var(--borde);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--primario) 18%, var(--fondo-tarjeta)),
+      var(--fondo-tarjeta) 60%);
+  padding: clamp(28px, 5vw, 52px);
+  margin-bottom: 30px;
+}
+
+.hero h1 { margin-bottom: .4em; }
+
+.hero p {
+  max-width: 62ch;
+  color: var(--texto-tenue);
+  font-size: clamp(.96rem, 1.6vw, 1.08rem);
+}
+
+.hero__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 11px;
+  margin-top: 22px;
+}
+
+/* Cifras del hero */
+.cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+  margin-top: 30px;
+}
+
+.cifra {
+  padding: 16px 18px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: color-mix(in srgb, var(--fondo) 55%, transparent);
+}
+
+.cifra__valor {
+  font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1.1;
+  background: linear-gradient(135deg, var(--primario-claro), var(--acento));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.cifra__etiqueta {
+  font-size: .82rem;
+  color: var(--texto-debil);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-top: 2px;
+}
+
+/* Barra de filtros */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 11px;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.buscador {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.buscador .entrada { padding-left: 40px; }
+
+.buscador__icono {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--texto-debil);
+  pointer-events: none;
+}
+
+/* Fila de consolas con desplazamiento horizontal */
+.consolas-fila {
+  display: flex;
+  gap: 9px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 22px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.consolas-fila::-webkit-scrollbar { height: 6px; }
+.consolas-fila::-webkit-scrollbar-track { background: var(--fondo-elevado); border-radius: 3px; }
+.consolas-fila::-webkit-scrollbar-thumb { background: var(--borde); border-radius: 3px; }
+
+.chip-consola {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-full);
+  background: var(--fondo-tarjeta);
+  color: var(--texto-tenue);
+  font-size: .88rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transicion);
+}
+
+.chip-consola:hover {
+  border-color: var(--primario);
+  color: var(--texto);
+}
+
+.chip-consola[aria-pressed="true"] {
+  background: var(--primario);
+  border-color: var(--primario);
+  color: #fff;
+}
+
+.chip-consola__conteo {
+  padding: 1px 7px;
+  border-radius: var(--radio-full);
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  font-size: .76rem;
+}
+
+/* Rejilla de juegos: columnas automaticas, sin media queries */
+.rejilla-juegos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 185px), 1fr));
+  gap: 18px;
+}
+
+.juego {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--fondo-tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  overflow: hidden;
+  transition: transform var(--transicion), border-color var(--transicion),
+              box-shadow var(--transicion);
+}
+
+.juego:hover {
+  transform: translateY(-4px);
+  border-color: var(--primario);
+  box-shadow: var(--sombra);
+}
+
+.juego__portada {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: var(--fondo-elevado);
+  overflow: hidden;
+}
+
+.juego__portada img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 300ms var(--transicion);
+}
+
+.juego:hover .juego__portada img { transform: scale(1.06); }
+
+/* Portada generada cuando el juego no tiene imagen: patron geometrico
+   derivado del titulo, con las iniciales encima. */
+.juego__sinportada {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background-image:
+    repeating-linear-gradient(45deg,
+      rgba(255, 255, 255, .045) 0 10px,
+      transparent 10px 20px);
+  font-family: var(--fuente-titulo);
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, .9);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .45);
+}
+
+.juego__consola {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  z-index: 2;
+}
+
+.juego__fav {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(10, 10, 20, .6);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transicion), color var(--transicion),
+              transform var(--transicion);
+}
+
+.juego:hover .juego__fav,
+.juego__fav:focus-visible,
+.juego__fav[aria-pressed="true"] { opacity: 1; }
+
+.juego__fav[aria-pressed="true"] { color: var(--error); }
+.juego__fav:hover { transform: scale(1.12); }
+
+.juego__play {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(to top, rgba(8, 8, 16, .85), transparent 65%);
+  opacity: 0;
+  transition: opacity var(--transicion);
+}
+
+.juego:hover .juego__play,
+.juego:focus-within .juego__play { opacity: 1; }
+
+.juego__play span {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--primario);
+  color: #fff;
+  box-shadow: var(--brillo);
+}
+
+.juego__info {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.juego__titulo {
+  font-size: .95rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--texto);
+  /* Recorta a dos lineas con puntos suspensivos */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.juego__meta {
+  font-size: .79rem;
+  color: var(--texto-debil);
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+/* El enlace cubre la tarjeta completa: area de clic generosa sin
+   anidar un <a> alrededor de los botones. */
+.juego__enlace {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.juego__enlace:focus-visible {
+  outline: 2px solid var(--primario);
+  outline-offset: -2px;
+  border-radius: var(--radio);
+}
+
+/* Paginacion */
+.paginacion {
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 34px;
+}
+
+.paginacion button {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--fondo-tarjeta);
+  color: var(--texto-tenue);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transicion);
+}
+
+.paginacion button:hover:not(:disabled) {
+  border-color: var(--primario);
+  color: var(--texto);
+}
+
+.paginacion button[aria-current="page"] {
+  background: var(--primario);
+  border-color: var(--primario);
+  color: #fff;
+}
+
+.paginacion button:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ---------------------------------------------------------------------
+   7. REPRODUCTOR
+   --------------------------------------------------------------------- */
+.reproductor {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* En pantallas anchas: emulador + barra lateral de partidas */
+@media (min-width: 1100px) {
+  .reproductor { grid-template-columns: minmax(0, 1fr) 330px; }
+}
+
+.escenario {
+  position: relative;
+  background: #000;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  overflow: hidden;
+  /* aspect-ratio reserva el espacio antes de que cargue el emulador,
+     evitando el salto de layout (CLS). */
+  aspect-ratio: 4 / 3;
+  width: 100%;
+}
+
+.escenario--ancho { aspect-ratio: 16 / 9; }
+
+/* --- Pantalla completa -----------------------------------------------
+   Dos variantes que deben verse igual:
+
+     :fullscreen            la nativa, cuando el navegador la concede
+     .pantalla-completa-simulada   el respaldo para iPhone, donde Safari
+                            no admite poner un <div> en pantalla completa
+
+   En ambas hay que anular el `aspect-ratio` del escenario: si se deja,
+   el recuadro conserva la proporcion 4/3 y queda flotando con franjas
+   enormes en vez de ocupar la pantalla.
+   --------------------------------------------------------------------- */
+.escenario:fullscreen,
+.escenario:-webkit-full-screen {
+  aspect-ratio: auto;
+  width: 100vw;
+  height: 100vh;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  background: #000;
+}
+
+.escenario.pantalla-completa-simulada {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  aspect-ratio: auto;
+  width: 100vw;
+  /* dvh sigue el alto real en moviles, donde la barra del navegador
+     aparece y desaparece; vh se queda como reserva para los que no lo
+     soportan. */
+  height: 100vh;
+  height: 100dvh;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  background: #000;
+}
+
+/* Bloquea el desplazamiento del documento mientras se juega a pantalla
+   completa simulada; si no, el dedo arrastra la pagina por detras. */
+body.sin-scroll {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* --- El juego NO debe deformarse ------------------------------------
+   El contenedor del lienzo se estira para llenar el escenario (lo hace
+   la regla con !important mas abajo, necesaria para que el emulador
+   ocupe todo el recuadro). El problema es que el lienzo heredaba esa
+   forma: en pantalla completa el escenario pasa a ser 16:9 y un juego
+   de 4:3 se estiraba a lo ancho. Todo se veia gordo y los bordes se
+   salian de la pantalla.
+
+   `object-fit: contain` separa las dos cosas: la CAJA del lienzo sigue
+   llenando el escenario, pero la IMAGEN de dentro se escala
+   proporcionalmente y se centra, dejando franjas negras arriba y abajo
+   (o a los lados) cuando las proporciones no coinciden. Es lo mismo que
+   hace cualquier reproductor de video.
+
+   Se aplica siempre, no solo en pantalla completa: tambien corrige a
+   Game Boy (10:9) y Game Boy Advance (3:2), que estaban ligeramente
+   estirados dentro del recuadro 4:3 sin que se notara a simple vista.
+   --------------------------------------------------------------------- */
+#juego canvas {
+  object-fit: contain;
+  /* Los pixeles de un juego retro deben verse nitidos, no difuminados
+     por el suavizado que aplica el navegador al escalar. */
+  image-rendering: pixelated;
+}
+
+/* --- Boton para salir de pantalla completa ---------------------------
+   Oculto mientras se juega en ventana normal; solo aparece cuando el
+   escenario esta ampliado. Vive dentro de #escenario porque la pantalla
+   completa nativa unicamente dibuja ese elemento y sus descendientes.
+   --------------------------------------------------------------------- */
+.escenario__salir {
+  display: none;
+  position: absolute;
+  /* Arriba a la IZQUIERDA: la esquina derecha la ocupa el menu
+     hamburguesa de EmulatorJS y los dos se pisaban. */
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  z-index: 40;
+  align-items: center;
+  gap: 7px;
+  /* Area de toque comoda: 44 px es el minimo recomendado en movil. */
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, .25);
+  border-radius: var(--radio-full);
+  background: rgba(10, 10, 20, .72);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: .88rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  /*
+   * Se oculta solo, como el boton de salir de un reproductor de video.
+   *
+   * Si estuviera siempre visible seria facil pulsarlo sin querer en
+   * mitad de una partida. Asi que por defecto es invisible y NO recibe
+   * toques (pointer-events: none, para que el dedo llegue al juego que
+   * hay debajo). El JavaScript le pone .visible durante unos segundos
+   * al entrar en pantalla completa y cada vez que se toca la pantalla.
+   */
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+  transition: opacity 220ms ease, transform 220ms ease, background var(--transicion);
+}
+
+/* Visible y pulsable solo durante la ventana de cortesia. */
+.escenario__salir.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+.escenario:fullscreen .escenario__salir,
+.escenario.pantalla-completa-simulada .escenario__salir {
+  display: inline-flex;
+}
+
+.escenario__salir:hover,
+.escenario__salir:focus-visible,
+.escenario__salir:active {
+  opacity: 1;
+  background: rgba(10, 10, 20, .85);
+}
+
+/* En pantallas tactiles no hay hover, asi que se deja mas visible. */
+@media (hover: none) {
+  .escenario__salir { opacity: .8; }
+}
+
+/* --- Panel: como instalar en iPhone ----------------------------------
+   Safari no deja ocultar su barra desde la pagina. Este panel explica
+   la unica via real (anadir a la pantalla de inicio) con los pasos
+   concretos, en vez de un aviso fugaz que nadie alcanza a leer.
+   --------------------------------------------------------------------- */
+.instalar-ios {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 250;
+  padding: 16px 18px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-lg);
+  background: var(--fondo-elevado);
+  box-shadow: var(--sombra-lg);
+  font-size: .92rem;
+  max-width: 460px;
+  margin-inline: auto;
+  animation: subir 260ms cubic-bezier(.2, .9, .3, 1);
+}
+
+.instalar-ios__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.instalar-ios__cabecera strong { flex: 1; font-size: 1rem; }
+
+.instalar-ios__cerrar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--texto-debil);
+  cursor: pointer;
+}
+
+.instalar-ios__cerrar:hover { color: var(--texto); background: var(--fondo); }
+
+.instalar-ios p {
+  margin: 0 0 10px;
+  color: var(--texto-tenue);
+  font-size: .88rem;
+}
+
+.instalar-ios ol {
+  margin: 0 0 14px;
+  padding-left: 20px;
+  color: var(--texto-tenue);
+  font-size: .88rem;
+  line-height: 1.75;
+}
+
+.instalar-ios ol strong { color: var(--texto); }
+
+/* EmulatorJS inyecta su propio arbol dentro de #juego */
+#juego { width: 100%; height: 100%; }
+
+/* Solo el contenedor del lienzo debe ocupar todo el escenario.
+   ----------------------------------------------------------------------
+   Esta regla apuntaba antes a `#juego > div`, y eso alcanzaba a TODOS los
+   hijos directos que crea EmulatorJS: .ejs_menu_bar, .ejs_context_menu,
+   .ejs_settings_parent... La barra de controles, que es `position:
+   absolute; bottom: 0`, se estiraba a la altura completa del escenario y
+   sus botones quedaban flotando a media pantalla en lugar de pegados
+   abajo. Acotarla al contenedor del lienzo lo resuelve. */
+#juego > .ejs_canvas_parent {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* =====================================================================
+   PANTALLA DE ARRANQUE DEL EMULADOR
+   =====================================================================
+   Mientras el juego no ha empezado, EmulatorJS mantiene su contenedor
+   con la clase `.ejs_game` y lo pinta de gris plano. Al arrancar lo
+   renombra a `.ejs_canvas_parent`, asi que esa clase sirve de
+   interruptor perfecto: todo lo de aqui desaparece solo cuando el juego
+   empieza, sin necesidad de JavaScript.
+   ===================================================================== */
+
+/* --- Fondo animado ---------------------------------------------------
+   Sustituye el gris por un degradado de colores en movimiento. Se logra
+   con un lienzo del triple de ancho que se desplaza: el degradado es
+   estatico, lo que viaja es la "ventana" por la que se ve. Resulta mas
+   suave y mucho mas barato que animar los colores uno a uno.
+   --------------------------------------------------------------------- */
+#juego > .ejs_game {
+  position: relative;
+  background: #080812 !important;
+  overflow: hidden;
+}
+
+/* --- Manchas de color a la deriva ------------------------------------
+   La version anterior animaba `background-position` y encima aplicaba
+   `backdrop-filter: blur(70px)`. No funcionaba: backdrop-filter toma
+   una INSTANTANEA de lo que hay detras y el navegador no la recalcula
+   en cada fotograma, asi que el degradado se movia por debajo pero se
+   veia una foto fija encima. De ahi el "parpadea una vez y se queda".
+
+   Ahora son dos capas de manchas radiales difuminadas que se mueven con
+   `transform`. Transform se compone en la GPU sin repintar nada, asi
+   que va suave y no cuesta casi nada.
+   --------------------------------------------------------------------- */
+#juego > .ejs_game::before,
+#juego > .ejs_game::after {
+  content: "";
+  position: absolute;
+  /* Mas grandes que el recuadro: al desplazarse nunca asoma un borde. */
+  inset: -45%;
+  pointer-events: none;
+  filter: blur(70px);
+  will-change: transform;
+}
+
+#juego > .ejs_game::before {
+  background:
+    radial-gradient(38% 46% at 28% 32%, rgba(125,  95, 255, .85), transparent 70%),
+    radial-gradient(34% 40% at 72% 66%, rgba(  0, 229, 192, .75), transparent 70%);
+  animation: deriva-a 22s ease-in-out infinite;
+}
+
+#juego > .ejs_game::after {
+  background:
+    radial-gradient(32% 38% at 70% 26%, rgba( 45, 152, 218, .70), transparent 70%),
+    radial-gradient(30% 36% at 26% 74%, rgba(165,  94, 234, .65), transparent 70%);
+  animation: deriva-b 28s ease-in-out infinite;
+}
+
+@keyframes deriva-a {
+  0%, 100% { transform: translate3d(  0%,   0%, 0) scale(1);    }
+  33%      { transform: translate3d(  8%,  -6%, 0) scale(1.12); }
+  66%      { transform: translate3d( -6%,   7%, 0) scale(.94);  }
+}
+
+@keyframes deriva-b {
+  0%, 100% { transform: translate3d(  0%,   0%, 0) scale(1.06); }
+  40%      { transform: translate3d( -9%,   5%, 0) scale(.92);  }
+  75%      { transform: translate3d(  6%,  -8%, 0) scale(1.15); }
+}
+
+/* --- Lienzo de destellos ---------------------------------------------
+   Lo dibuja emulador.js. Va por encima de las manchas y por debajo del
+   boton y del texto de carga.
+   --------------------------------------------------------------------- */
+.destellos {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* --- Boton "Iniciar juego" al centro ---------------------------------
+   Venia como `position: relative` al final del recuadro, casi fuera de
+   vista. Se ancla al centro del escenario.
+   --------------------------------------------------------------------- */
+#juego > .ejs_start_button {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translate(-50%, -50%);
+  z-index: 12;
+
+  /* Centrado del texto DENTRO de la pildora.
+     ------------------------------------------------------------------
+     EmulatorJS fija `line-height: 45px` para centrar el texto en la
+     altura exacta de su boton original, que no tenia relleno. Al
+     anadirle padding, esa linea de 45 px dejo de caber en el area
+     interior y el texto se desplazaba 16 px hacia abajo: la pildora
+     quedaba centrada pero su contenido no.
+
+     Se devuelve el line-height a lo normal y se centra con flexbox,
+     que no depende de la altura de la caja. */
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  line-height: 1 !important;
+
+  padding: 16px 38px !important;
+  border-radius: var(--radio-full);
+  background: rgba(10, 10, 22, .55);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, .35);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, .45);
+  font-weight: 700;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: transform var(--transicion), background var(--transicion),
+              box-shadow var(--transicion);
+  /* Latido suave para que se note que hay que pulsarlo. */
+  animation: respirar-inicio 2.6s ease-in-out infinite;
+}
+
+#juego > .ejs_start_button:hover {
+  background: rgba(125, 95, 255, .85);
+  transform: translate(-50%, -50%) scale(1.05);
+  box-shadow: 0 14px 44px rgba(125, 95, 255, .5);
+  animation: none;
+}
+
+@keyframes respirar-inicio {
+  0%, 100% { box-shadow: 0 10px 34px rgba(0, 0, 0, .45); }
+  50%      { box-shadow: 0 10px 34px rgba(0, 0, 0, .45),
+                         0 0 0 10px rgba(255, 255, 255, .07); }
+}
+
+/* --- Texto de carga al centro ---------------------------------------- */
+#juego .ejs_loading_text {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%);
+  z-index: 12;
+  width: min(80%, 420px);
+  text-align: center;
+  font-weight: 650;
+  font-size: 1.02rem;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .6);
+}
+
+/* --- Barra de progreso -----------------------------------------------
+   La inyecta emulador.js. EmulatorJS ya calcula el porcentaje, pero
+   solo lo escribe dentro del texto ("Descargando... 42%"); aqui se lee
+   ese numero y se traduce a una barra.
+   --------------------------------------------------------------------- */
+.progreso-emulador {
+  position: absolute;
+  top: calc(50% + 46px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  width: min(72%, 360px);
+  display: none;
+}
+
+.progreso-emulador.visible { display: block; }
+
+.progreso-emulador__pista {
+  height: 8px;
+  border-radius: var(--radio-full);
+  background: rgba(0, 0, 0, .4);
+  border: 1px solid rgba(255, 255, 255, .18);
+  overflow: hidden;
+}
+
+.progreso-emulador__relleno {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #00e5c0, #7d5fff);
+  transition: width 260ms ease;
+}
+
+/* Sin porcentaje conocido (descomprimiendo, por ejemplo): barra que
+   recorre de lado a lado en lugar de quedarse quieta en cero. */
+.progreso-emulador.indeterminada .progreso-emulador__relleno {
+  width: 38%;
+  animation: progreso-vaiven 1.3s ease-in-out infinite;
+}
+
+@keyframes progreso-vaiven {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(300%); }
+}
+
+.progreso-emulador__cifra {
+  margin-top: 7px;
+  text-align: center;
+  font-family: var(--fuente-mono);
+  font-size: .82rem;
+  color: rgba(255, 255, 255, .85);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, .6);
+}
+
+.escenario__cargando {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  gap: 14px;
+  background: var(--fondo);
+  text-align: center;
+  padding: 24px;
+}
+
+/* El ocultamiento lo cubre la regla global [hidden] de la seccion 2. */
+
+.escenario__cargando .contenido {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
+}
+
+.barra-progreso {
+  width: min(280px, 70vw);
+  height: 6px;
+  border-radius: var(--radio-full);
+  background: var(--fondo-elevado);
+  overflow: hidden;
+}
+
+.barra-progreso__relleno {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primario), var(--acento));
+  transition: width 240ms ease;
+}
+
+/* Barra de acciones del reproductor */
+.acciones-juego {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.acciones-juego .separador {
+  width: 1px;
+  height: 26px;
+  background: var(--borde);
+  margin-inline: 4px;
+}
+
+/* Ranuras de guardado */
+.ranuras {
+  display: grid;
+  gap: 11px;
+}
+
+.ranura {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 12px;
+  padding: 11px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--fondo-tarjeta);
+  transition: border-color var(--transicion);
+}
+
+.ranura:hover { border-color: var(--primario); }
+.ranura--vacia { border-style: dashed; opacity: .72; }
+.ranura--auto  { border-left: 3px solid var(--acento); }
+
+.ranura__miniatura {
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radio-sm);
+  background: var(--fondo-elevado);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  color: var(--texto-debil);
+  font-size: .72rem;
+}
+
+.ranura__miniatura img { width: 100%; height: 100%; object-fit: cover; }
+
+.ranura__cuerpo {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ranura__nombre {
+  font-weight: 650;
+  font-size: .9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ranura__meta {
+  font-size: .76rem;
+  color: var(--texto-debil);
+  font-family: var(--fuente-mono);
+}
+
+.ranura__acciones {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+/* Indicador de mando conectado */
+.mando {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-full);
+  background: var(--fondo-tarjeta);
+  font-size: .82rem;
+  color: var(--texto-tenue);
+}
+
+.mando--activo {
+  border-color: var(--exito);
+  color: var(--exito);
+}
+
+.mando__punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--texto-debil);
+}
+
+.mando--activo .mando__punto {
+  background: var(--exito);
+  animation: latir 1.6s ease-in-out infinite;
+}
+
+@keyframes latir {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .5; transform: scale(.8); }
+}
+
+/* Tabla de controles */
+.controles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 9px 22px;
+  font-size: .87rem;
+}
+
+.controles__fila {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--borde-suave);
+}
+
+.controles__fila span:first-child { color: var(--texto-tenue); }
+
+/* ---------------------------------------------------------------------
+   8. PANEL DE ADMINISTRACION
+   --------------------------------------------------------------------- */
+.admin {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 22px;
+}
+
+/* Evita que el panel desborde la ventana.
+   ----------------------------------------------------------------------
+   Una pista `1fr` es en realidad `minmax(auto, 1fr)`, y ese minimo `auto`
+   equivale al min-content del hijo: si dentro hay una tabla ancha o una
+   grafica con muchas columnas, la pista crece mas que la ventana y
+   aparece scroll horizontal en toda la pagina.
+
+   `min-width: 0` libera ese minimo y deja que el hijo se encoja; el
+   contenido que de verdad necesite mas ancho se desplaza dentro de su
+   propio contenedor (.tabla-envoltorio), no arrastrando el documento. */
+.admin > * {
+  min-width: 0;
+}
+
+.admin__lateral {
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--fondo-tarjeta);
+}
+
+/* A partir de 980 px hay dos columnas: ahi si tiene sentido que el menu
+   acompane al hacer scroll.
+   ----------------------------------------------------------------------
+   Por debajo de ese ancho la rejilla colapsa a una sola columna y el menu
+   pasa a ocupar todo el ancho. Con `position: sticky` se quedaba pegado
+   arriba, flotando por encima de las metricas y las graficas segun se
+   bajaba. Por eso el sticky vive dentro de la media query y no fuera. */
+@media (min-width: 980px) {
+  .admin { grid-template-columns: 215px minmax(0, 1fr); }
+
+  .admin__lateral {
+    position: sticky;
+    top: calc(var(--alto-barra) + 20px);
+  }
+}
+
+/* En una sola columna el menu se lee mejor en horizontal que apilado. */
+@media (max-width: 979px) {
+  .admin__lateral {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .admin__titulo {
+    width: 100%;
+    padding: 4px 4px 0;
+  }
+
+  .admin__link {
+    flex: 1 1 auto;
+    justify-content: center;
+    white-space: nowrap;
+  }
+}
+
+.admin__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  border-radius: var(--radio-sm);
+  color: var(--texto-tenue);
+  font-size: .91rem;
+  font-weight: 550;
+  transition: background var(--transicion), color var(--transicion);
+}
+
+.admin__link:hover { background: var(--fondo-elevado); color: var(--texto); }
+
+.admin__link[aria-current="page"] {
+  background: color-mix(in srgb, var(--primario) 15%, transparent);
+  color: var(--primario-claro);
+}
+
+.admin__titulo {
+  font-size: .74rem;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--texto-debil);
+  padding: 11px 13px 5px;
+}
+
+/* Tabla responsiva */
+.tabla-envoltorio {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .9rem;
+  min-width: 620px;
+}
+
+.tabla th,
+.tabla td {
+  padding: 11px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--borde-suave);
+  vertical-align: middle;
+}
+
+.tabla th {
+  font-size: .78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .055em;
+  color: var(--texto-debil);
+  background: var(--fondo-alto);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.tabla tbody tr { transition: background var(--transicion); }
+.tabla tbody tr:hover { background: var(--fondo-elevado); }
+.tabla td.acciones { white-space: nowrap; text-align: right; }
+
+.tabla__miniatura {
+  width: 48px;
+  height: 36px;
+  border-radius: var(--radio-sm);
+  object-fit: cover;
+  background: var(--fondo-elevado);
+}
+
+/* Cifras del dashboard */
+.metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.metrica {
+  padding: 18px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--fondo-tarjeta);
+}
+
+.metrica__etiqueta {
+  font-size: .79rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--texto-debil);
+  margin-bottom: 5px;
+}
+
+.metrica__valor { font-size: 1.85rem; font-weight: 800; line-height: 1.1; }
+.metrica__pie   { font-size: .8rem; color: var(--texto-debil); margin-top: 3px; }
+
+/* Grafica de barras en CSS puro, sin librerias */
+.grafica {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 160px;
+  padding-top: 12px;
+}
+
+.grafica__columna {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+}
+
+.grafica__barra {
+  width: 100%;
+  min-height: 3px;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(to top, var(--primario-oscuro), var(--primario-claro));
+  transition: height 400ms cubic-bezier(.2, .9, .3, 1);
+}
+
+.grafica__etiqueta {
+  font-size: .68rem;
+  color: var(--texto-debil);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Barra de progreso de logro */
+.logro {
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  padding: 13px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--fondo-tarjeta);
+}
+
+.logro--bloqueado { opacity: .55; }
+
+.logro__icono {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: var(--radio-sm);
+  display: grid;
+  place-items: center;
+  background: var(--fondo-elevado);
+  color: var(--texto-debil);
+}
+
+.logro--obtenido .logro__icono {
+  background: linear-gradient(135deg, var(--primario), var(--acento));
+  color: #fff;
+}
+
+.logro__cuerpo { flex: 1; min-width: 0; }
+.logro__nombre { font-weight: 650; font-size: .92rem; }
+.logro__desc   { font-size: .8rem; color: var(--texto-debil); }
+
+.progreso {
+  height: 5px;
+  border-radius: var(--radio-full);
+  background: var(--fondo-elevado);
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.progreso__relleno {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primario), var(--acento));
+  transition: width 500ms ease;
+}
+
+/* ---------------------------------------------------------------------
+   9. UTILIDADES
+   --------------------------------------------------------------------- */
+.flex        { display: flex; }
+.flex-col    { flex-direction: column; }
+.items-center{ align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-sm { gap: 7px; }
+.gap    { gap: 13px; }
+.gap-lg { gap: 22px; }
+.flex-wrap { flex-wrap: wrap; }
+.ml-auto { margin-left: auto; }
+.mt-0 { margin-top: 0; }
+.mt    { margin-top: 18px; }
+.mt-lg { margin-top: 32px; }
+.mb-0 { margin-bottom: 0; }
+.mb   { margin-bottom: 18px; }
+.text-center { text-align: center; }
+.text-tenue  { color: var(--texto-tenue); }
+.text-debil  { color: var(--texto-debil); }
+.text-sm     { font-size: .86rem; }
+.text-xs     { font-size: .78rem; }
+.w-full { width: 100%; }
+.truncar { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Visible solo para lectores de pantalla */
+.solo-lector {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Salto al contenido: aparece solo al tabular */
+.salto-contenido {
+  position: absolute;
+  left: 50%;
+  top: -60px;
+  transform: translateX(-50%);
+  z-index: 100;
+  padding: 11px 20px;
+  border-radius: 0 0 var(--radio-sm) var(--radio-sm);
+  background: var(--primario);
+  color: #fff;
+  font-weight: 600;
+  transition: top var(--transicion);
+}
+
+.salto-contenido:focus {
+  top: 0;
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------------
+   10. RESPONSIVO
+   --------------------------------------------------------------------- */
+
+/* --- Tablet --- */
+@media (max-width: 860px) {
+  .barra__menu { display: grid; margin-left: auto; }
+
+  .barra__nav {
+    position: absolute;
+    top: var(--alto-barra);
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    margin: 0;
+    padding: 11px 16px 16px;
+    background: var(--fondo-alto);
+    border-bottom: 1px solid var(--borde);
+    box-shadow: var(--sombra);
+    /* Oculto por defecto en movil; el JS alterna el atributo */
+    display: none;
+  }
+
+  .barra__nav[data-abierto="true"] { display: flex; }
+
+  .barra__link { padding: 12px 14px; font-size: 1rem; }
+
+  .pie__nota { float: none; text-align: left; max-width: none; }
+}
+
+/* --- Movil --- */
+@media (max-width: 620px) {
+  body { font-size: 15px; }
+
+  .contenedor { padding-inline: 14px; }
+  .principal  { padding-block: 20px 40px; }
+
+  .hero { padding: 24px 18px; }
+
+  .rejilla-juegos {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 148px), 1fr));
+    gap: 13px;
+  }
+
+  .juego__info { padding: 10px 11px 12px; }
+  .juego__titulo { font-size: .88rem; }
+
+  /* En movil el boton de favorito se queda visible: no hay hover */
+  .juego__fav { opacity: 1; }
+
+  .tarjeta, .panel__cuerpo, .panel__cabecera { padding: 16px; }
+
+  .modal { padding: 0; align-items: flex-end; }
+
+  .modal__caja {
+    max-width: none;
+    border-radius: var(--radio-lg) var(--radio-lg) 0 0;
+    max-height: 88vh;
+  }
+
+  .notificaciones {
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    max-width: none;
+  }
+
+  .ranura { grid-template-columns: 62px 1fr; }
+
+  .acciones-juego .btn { flex: 1 1 auto; }
+
+  .metricas { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .metrica__valor { font-size: 1.5rem; }
+
+  .cifra__valor { font-size: 1.4rem; }
+}
+
+/* --- Movil en horizontal: el emulador se come la pantalla --- */
+/* --- Telefono en horizontal ------------------------------------------
+   El objetivo es que el juego quepa entero SIN necesidad de pantalla
+   completa, porque en iPhone esta no se puede conceder de verdad.
+
+   La clave es la unidad: `100vh` en Safari movil mide el viewport
+   "grande", el que existe cuando la barra de direcciones esta oculta.
+   Como la barra casi siempre esta visible, el escenario quedaba mas
+   alto que el area util y el juego aparecia cortado por abajo.
+   `100dvh` (dynamic viewport height) sigue el alto REAL visible en cada
+   momento y se reajusta cuando la barra aparece o se esconde.
+
+   `hover: none` limita la regla a pantallas tactiles: sin ella, una
+   ventana de escritorio estrecha y apaisada entraba tambien aqui.
+   --------------------------------------------------------------------- */
+@media (max-width: 920px) and (orientation: landscape) and (hover: none) {
+  .barra { position: static; }
+
+  .escenario {
+    aspect-ratio: auto;
+    height: calc(100vh - 12px);        /* reserva para navegadores sin dvh */
+    height: calc(100dvh - 12px);
+    max-height: calc(100dvh - 12px);
+  }
+
+  .principal { padding-block: 6px; }
+
+  /* Se recupera alto ocultando lo que no hace falta mientras se juega:
+     la ruta de navegacion, el titulo y el indicador de mando. */
+  .reproductor nav[aria-label="Ruta de navegacion"],
+  .reproductor + * h1,
+  .principal > .contenedor > nav[aria-label="Ruta de navegacion"] {
+    display: none;
+  }
+
+  /* La columna de partidas pasa debajo: el juego manda. */
+  .reproductor { gap: 10px; }
+}
+
+/* --- Pantallas muy anchas --- */
+@media (min-width: 1600px) {
+  :root { --ancho-max: 1480px; }
+}
+
+/* ---------------------------------------------------------------------
+   11. ACCESIBILIDAD Y PREFERENCIAS
+   --------------------------------------------------------------------- */
+
+/* Foco visible y consistente en todo lo interactivo */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--primario-claro);
+  outline-offset: 2px;
+  border-radius: var(--radio-sm);
+}
+
+/* Respeta a quien pidio menos animacion en su sistema operativo */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Modo de alto contraste */
+@media (prefers-contrast: more) {
+  :root {
+    --borde: #5a5a7e;
+    --texto-tenue: #d3d4e4;
+    --texto-debil: #adaec6;
+  }
+}
+
+/* Impresion: fuera cromos, solo contenido */
+@media print {
+  body { background: #fff; color: #000; }
+  body::before,
+  .barra,
+  .pie,
+  .notificaciones,
+  .acciones-juego,
+  .filtros { display: none !important; }
+
+  .tarjeta,
+  .panel { border: 1px solid #ccc; box-shadow: none; }
+
+  a { color: #000; text-decoration: underline; }
+}
