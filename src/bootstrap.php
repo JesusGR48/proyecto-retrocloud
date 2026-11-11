@@ -18,6 +18,31 @@ declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 
 date_default_timezone_set(APP_ZONA_HORARIA);
+
+// ---------------------------------------------------------------------
+// 1b. HTTPS detras de un proxy inverso
+//
+//     En un hosting compartido (AlwaysData, Cloudflare, cualquier CDN)
+//     el TLS lo termina un proxy delante de PHP. El navegador habla por
+//     HTTPS, pero la peticion llega a PHP por HTTP interno, asi que
+//     $_SERVER['HTTPS'] viene vacio y el proxy nos avisa del esquema
+//     real en la cabecera X-Forwarded-Proto.
+//
+//     Sin esta normalizacion pasaban tres cosas, todas malas:
+//       · FORZAR_HTTPS entraba en un BUCLE INFINITO de 301 (PHP creia
+//         que seguia en HTTP y redirigia a HTTPS una y otra vez).
+//       · La cabecera HSTS no se emitia nunca.
+//       · La cookie de sesion no se marcaba Secure.
+//
+//     Solo se confia en la cabecera cuando CONFIAR_PROXY esta activo,
+//     porque un cliente puede falsificarla si nadie la filtra antes.
+//     En local se deja en false.
+// ---------------------------------------------------------------------
+if (defined('CONFIAR_PROXY') && CONFIAR_PROXY
+    && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'
+) {
+    $_SERVER['HTTPS'] = 'on';
+}
 mb_internal_encoding('UTF-8');
 
 // ---------------------------------------------------------------------

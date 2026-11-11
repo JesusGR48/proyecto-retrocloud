@@ -6,4 +6,12 @@
     Order allow,deny
     Deny from all
 </IfModule>
-php_flag engine off
+# php_flag solo existe cuando PHP corre como modulo de Apache. Con
+# PHP-FPM o CGI (lo normal en hosting compartido) esta directiva
+# provoca un error 500 del servidor, asi que va condicionada.
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
