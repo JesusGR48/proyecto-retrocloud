@@ -222,6 +222,98 @@ final class Auth
         );
     }
 
+    /**
+     * Vuelve a comprobar contra la base de datos que la cuenta sigue
+     * siendo valida, y refresca el rol.
+     *
+     * POR QUE HACE FALTA
+     * Todo lo de arriba (autenticado, rol, esAdmin) lee del array de
+     * sesion, que se escribio una sola vez al iniciar sesion. Mientras
+     * esa sesion viva, los cambios hechos en la base de datos no tienen
+     * ningun efecto:
+     *
+     *   · un usuario borrado sigue dentro
+     *   · un usuario desactivado conserva el acceso completo
+     *   · y el peor: un administrador degradado a jugador SIGUE siendo
+     *     administrador, porque esAdmin() mira $_SESSION['rol']
+     *
+     * Es decir, el panel de administracion podia quitarle el rol a
+     * alguien y esa persona conservaba sus permisos hasta que cerrara
+     * sesion por su cuenta. Revocar un permiso tiene que surtir efecto
+     * aunque el afectado no colabore.
+     *
+     * POR QUE NO EN CADA PETICION
+     * Seria una consulta mas por cada carga, incluida cada peticion de
+     * la API durante una partida. Con revisar cada minuto, la ventana
+     * maxima de un permiso revocado es de 60 segundos, que para este
+     * sistema sobra.
+     *
+     * POR QUE NO CIERRA SESION SI LA BASE DE DATOS FALLA
+     * Un corte de MySQL echaria a todo el mundo a la vez, y al volver
+     * nadie podria entrar porque el login tambien necesita la base.
+     * Ante la duda, se deja pasar: el error de disponibilidad seria
+     * peor que la ventana de riesgo.
+     */
+    public static function revalidar(int $cadaSegundos = 60): void
+    {
+        if (!self::autenticado()) {
+            return;
+        }
+
+        $ahora  = time();
+        $ultima = (int) ($_SESSION['revalidado_en'] ?? 0);
+        if ($ahora - $ultima < $cadaSegundos) {
+            return;
+        }
+
+        try {
+            $fila = Database::fila(
+                'SELECT rol, activo FROM usuarios WHERE id = :id',
+                ['id' => self::id()]
+            );
+        } catch (\Throwable) {
+            return;   // base de datos caida: no echamos a nadie
+        }
+
+        $_SESSION['revalidado_en'] = $ahora;
+
+        // Cuenta borrada o desactivada: fuera.
+        if ($fila === null || (int) ($fila['activo'] ?? 0) !== 1) {
+            /*
+             * Se DEGRADA a visitante en lugar de llamar a cerrarSesion().
+             *
+             * cerrarSesion() destruye la sesion y borra la cookie, lo
+             * cual esta bien cuando alguien pulsa "Salir" y lo siguiente
+             * es una respuesta JSON. Aqui no: esto corre en el arranque
+             * y DESPUES la pagina se sigue pintando. Csrf::meta() genera
+             * entonces un token que ya no tiene donde guardarse, porque
+             * la sesion esta destruida, y a partir de ese momento todo
+             * POST responde 419 token invalido. Se vio en el asistente:
+             * el saludo llegaba y el primer mensaje fallaba.
+             *
+             * Vaciando el array y rotando el identificador, la persona
+             * queda como visitante anonimo con una sesion viva: puede
+             * navegar y los formularios siguen funcionando.
+             *
+             * Aqui si se pide borrar el archivo viejo (true). La rotacion
+             * periodica usa false a proposito, por una carrera entre
+             * peticiones paralelas de Apache, pero esto ocurre una sola
+             * vez y justo lo que se busca es que la sesion anterior deje
+             * de servir.
+             */
+            $_SESSION = [];
+            if (!headers_sent()) {
+                session_regenerate_id(true);
+            }
+            $_SESSION['creada_en']     = time();
+            $_SESSION['revalidado_en'] = $ahora;
+            return;
+        }
+
+        // Rol cambiado: se aplica ya, sin esperar a que cierre sesion.
+        $_SESSION['rol'] = (string) $fila['rol'];
+    }
+
     // -----------------------------------------------------------------
     // Guardianes
     // -----------------------------------------------------------------

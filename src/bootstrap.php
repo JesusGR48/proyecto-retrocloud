@@ -335,6 +335,17 @@ if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
         session_regenerate_id(false);
         $_SESSION['creada_en'] = $ahora;
     }
+
+    /*
+     * Confrontar la sesion con la base de datos de vez en cuando.
+     *
+     * Sin esto, el array de sesion es la unica fuente de verdad sobre
+     * quien es el usuario y que puede hacer, y se escribio al iniciar
+     * sesion: borrar una cuenta, desactivarla o quitarle el rol de
+     * administrador no surtia efecto hasta que la persona cerrara
+     * sesion por su cuenta. Ver Auth::revalidar().
+     */
+    \RetroCloud\Auth::revalidar();
 }
 
 // ---------------------------------------------------------------------

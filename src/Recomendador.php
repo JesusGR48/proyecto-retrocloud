@@ -207,6 +207,121 @@ final class Recomendador
     }
 
     // =================================================================
+    // FILTRADO DIRIGIDO (lo usa el asistente)
+    // =================================================================
+
+    /**
+     * Juegos que cumplen unos criterios, ordenados por lo que le pega a
+     * cada usuario.
+     *
+     * El asistente del chat traduce lo que escribe la persona a estos
+     * criterios y pide la lista. La diferencia con para() es quien manda:
+     * alli el motor decide todo, aqui la persona fija el que (genero,
+     * consola, decada) y el motor solo decide el orden.
+     *
+     * Dos personas que pidan "juegos de aventura" reciben los mismos
+     * juegos en distinto orden, porque el perfil de gustos pondera.
+     *
+     * @param array{genero?:string, consola?:string, decada?:int, jugadores?:int} $filtros
+     * @return array{juegos: list<array<string,mixed>>, total: int, personalizado: bool}
+     */
+    public static function filtrar(?int $usuarioId, array $filtros, int $limite = 4): array
+    {
+        $catalogo = self::catalogo();
+        if ($catalogo === []) {
+            return ['juegos' => [], 'total' => 0, 'personalizado' => false];
+        }
+
+        $norm = static fn(?string $v): string => $v === null
+            ? ''
+            : mb_strtolower(trim($v));
+
+        // --- Aplicar los criterios ---------------------------------
+        $elegibles = [];
+        foreach ($catalogo as $id => $j) {
+            if (isset($filtros['genero'])
+                && $norm($j['genero']) !== $norm($filtros['genero'])) {
+                continue;
+            }
+            if (isset($filtros['consola'])
+                && $j['consola_slug'] !== $filtros['consola']) {
+                continue;
+            }
+            if (isset($filtros['decada'])
+                && $j['decada'] !== (int) $filtros['decada']) {
+                continue;
+            }
+            if (isset($filtros['jugadores'])
+                && $j['jugadores'] < (int) $filtros['jugadores']) {
+                continue;
+            }
+            $elegibles[$id] = $j;
+        }
+
+        $total = count($elegibles);
+        if ($total === 0) {
+            return ['juegos' => [], 'total' => 0, 'personalizado' => false];
+        }
+
+        // --- Ordenar -------------------------------------------------
+        $matriz = self::matrizAfinidad();
+        $mias   = ($usuarioId !== null && isset($matriz[$usuarioId]))
+            ? $matriz[$usuarioId]
+            : [];
+
+        $personalizado = $mias !== [];
+        $perfil = $personalizado ? self::perfilDeGustos($mias, $catalogo) : [];
+
+        $candidatos = [];
+        foreach ($elegibles as $id => $j) {
+            if ($personalizado) {
+                $nota = self::puntuarPorContenido($j, $perfil);
+
+                /* Lo ya jugado baja, pero no desaparece: si alguien pide
+                   "juegos de peleas" y solo hay dos, esconderlos por
+                   haberlos jugado seria absurdo. */
+                if (isset($mias[$id])) {
+                    $nota *= 0.35;
+                }
+            } else {
+                $nota = log(1 + $j['veces_jugado']) / 10;
+            }
+
+            $candidatos[$id] = [
+                'juego'        => $j,
+                'puntuacion'   => $nota,
+                'contenido'    => $nota,
+                'colaborativo' => 0.0,
+                'yaJugado'     => isset($mias[$id]),
+            ];
+        }
+
+        $elegidos = self::ordenarConDiversidad($candidatos, $limite);
+
+        $juegos = [];
+        foreach ($elegidos as $c) {
+            $porque = match (true) {
+                $c['yaJugado']   => 'Ya lo jugaste, por si quieres repetir.',
+                !$personalizado  => 'Encaja con lo que pediste.',
+                $c['puntuacion'] > 0.45 => 'Encaja con lo que pediste y con tu historial.',
+                default          => 'Encaja con lo que pediste.',
+            };
+
+            $juegos[] = self::formatear(
+                $c['juego'],
+                $personalizado ? $c['puntuacion'] : null,
+                $porque
+            );
+        }
+
+        return [
+            'juegos' => $juegos,
+            'total' => $total,
+            'personalizado' => $personalizado,
+        ];
+    }
+
+    // =================================================================
     // DATOS
     // =================================================================
 
@@ -242,6 +357,7 @@ final class Recomendador
                 'anio'          => $anio,
                 'consola'       => (string) $f['consola'],
                 'consola_id'    => (int) $f['consola_id'],
+                'consola_slug'  => (string) $f['consola_slug'],
                 'genero'        => $f['genero'] !== null ? (string) $f['genero'] : null,
                 'genero_id'     => $f['genero_id'] !== null ? (int) $f['genero_id'] : null,
                 'desarrollador' => $f['desarrollador'] !== null

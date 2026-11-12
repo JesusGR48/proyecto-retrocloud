@@ -57,5 +57,11 @@ $e = static fn(mixed $v): string => Validator::e($v);
   <script type="module" src="<?= $e(recurso($scriptModulo)) ?>"></script>
 <?php endif; ?>
 
+<?php /* Asistente flotante del catalogo. Se carga en todo el sitio: el
+         modulo inyecta su propio marcado, asi que no hace falta tocar
+         ninguna plantilla, y el propio script se abstiene en el
+         reproductor para no estorbar encima del juego. */ ?>
+<script type="module" src="<?= $e(recurso('assets/js/asistente.js')) ?>"></script>
+
 </body>
 </html>
