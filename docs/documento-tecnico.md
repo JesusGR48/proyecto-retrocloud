@@ -1074,8 +1074,16 @@ Por transparencia conviene dejar constancia de lo que **no** se verificó:
 
 ## 14. Problemas encontrados y soluciones
 
-Se documentan los fallos reales detectados durante el desarrollo, por su valor
-formativo.
+Se documentan los treinta y cinco fallos reales detectados durante el
+desarrollo, por su valor formativo. Cada uno sigue la misma estructura:
+**síntoma** (lo que se observó), **diagnóstico** (lo que se midió, cuando hizo
+falta medir), **causa** (por qué ocurría de verdad) y **solución**.
+
+No se incluyen erratas ni despistes de tecleo: solo los problemas cuya causa no
+era evidente y cuya resolución enseñó algo. Varios de ellos —14.22, 14.25— se
+resolvieron leyendo el código fuente del motor de emulación, porque el
+comportamiento no está documentado en ninguna parte. La sección se cierra con
+las lecciones transversales que se repiten a lo largo de todos ellos.
 
 ### 14.1 Marcadores nombrados repetidos en PDO
 
@@ -1164,6 +1172,524 @@ no del proyecto, pero conviene corregirlo:
 ```ini
 extension_dir = "C:\MAMP\bin\php\php8.1.0\ext\"
 ```
+
+### 14.7 La rotación del identificador de sesión expulsaba usuarios
+
+**Síntoma.** De forma intermitente, y sobre todo al cargar una página con
+varias peticiones simultáneas, aparecía «tu sesión expiró» sin haber tocado
+nada.
+
+**Causa.** La rotación periódica usaba `session_regenerate_id(true)`, que
+**borra el archivo de sesión anterior de inmediato**. Apache atiende varias
+peticiones en paralelo: mientras una rotaba el identificador, las otras —ya en
+vuelo con la cookie vieja— encontraban su archivo eliminado y se quedaban sin
+sesión.
+
+**Solución.** Pasar a `session_regenerate_id(false)`. Lo que frustra el ataque
+de fijación es que el identificador **cambie**, no que el archivo viejo
+desaparezca al instante; además, ese archivo ya no contiene credenciales
+útiles. El fallo no se reproducía con el servidor integrado de PHP, que es
+monohilo y atiende las peticiones de una en una.
+
+### 14.8 La sesión ignoraba los cambios hechos en la base de datos
+
+**Síntoma.** El asistente del catálogo saludó por su nombre a una cuenta de
+pruebas **borrada media hora antes**.
+
+**Causa.** `autenticado()`, `rol()` y `esAdmin()` leían exclusivamente del
+array de sesión, escrito una sola vez al iniciar sesión. Mientras esa sesión
+viviera, los cambios en la base de datos no surtían ningún efecto:
+
+| Acción del administrador | Efecto real |
+|---|---|
+| Borrar un usuario | Seguía dentro |
+| Desactivar un usuario | Conservaba el acceso completo |
+| **Quitar el rol de administrador** | **Seguía siendo administrador** |
+
+El tercer caso es el grave: el panel podía degradar a alguien y esa persona
+conservaba sus permisos hasta que cerrara sesión por su cuenta. Revocar un
+permiso debe surtir efecto aunque el afectado no colabore.
+
+**Solución.** `Auth::revalidar()` confronta la sesión con la base de datos cada
+60 segundos y refresca el rol. Dos decisiones deliberadas:
+
+- **No se comprueba en cada petición**, porque añadiría una consulta a cada
+  carga, incluidas las de la API durante una partida. Con un minuto, la ventana
+  máxima de un permiso revocado es de 60 segundos.
+- **No se cierra sesión si la base de datos falla.** Un corte de MySQL
+  expulsaría a todos a la vez y, al volver, nadie podría entrar porque el
+  *login* también necesita la base. El fallo de disponibilidad sería peor que
+  la ventana de riesgo.
+
+### 14.9 Cerrar la sesión a media petición dejaba el token CSRF sin dónde vivir
+
+**Síntoma.** Tras corregir lo anterior, el asistente saludaba correctamente
+pero el primer mensaje fallaba con `419 token inválido`. Todo `POST` posterior
+hacía lo mismo.
+
+**Causa.** La revalidación llamaba a `cerrarSesion()`, que destruye la sesión y
+borra la cookie. Eso es correcto cuando el usuario pulsa «Salir» y lo siguiente
+es una respuesta JSON, pero aquí ocurría durante el arranque y **la página
+seguía renderizándose**: `Csrf::meta()` generaba entonces un token que ya no
+tenía dónde guardarse, porque la sesión estaba destruida.
+
+**Solución.** Degradar a visitante en lugar de destruir: vaciar el array y
+rotar el identificador deja una sesión viva y anónima, con la que la persona
+puede seguir navegando y los formularios siguen funcionando. Aquí sí se pide
+borrar el archivo anterior, porque ocurre una sola vez y lo que se busca es
+precisamente que la sesión previa deje de servir.
+
+### 14.10 La política de seguridad de contenido bloqueaba el motor de emulación
+
+**Síntoma.** El reproductor mostraba «no se pudo cargar el motor» y la consola
+registraba violaciones de CSP.
+
+**Causa.** La CSP declaraba `default-src 'self'`, pero los núcleos de
+emulación, sus *workers* y sus recursos se descargan de `cdn.emulatorjs.org`.
+
+**Solución.** Añadir ese origen a las directivas que lo necesitan
+(`script-src`, `worker-src`, `child-src`, `connect-src`, `img-src`,
+`media-src`, `font-src`, `style-src`), y **solo a esas**. El origen se compone
+desde una constante de configuración, de modo que al servir el emulador en
+local la CSP se cierra sola.
+
+### 14.11 WebAssembly necesita `'unsafe-eval'`
+
+**Síntoma.** Resuelto lo anterior, el núcleo seguía sin arrancar.
+
+**Causa.** El código que Emscripten genera para cargar WebAssembly construye
+funciones a partir de cadenas de texto, algo que `'unsafe-eval'` prohíbe.
+
+**Solución.** Conceder `'unsafe-eval'` **únicamente en la página del
+reproductor**, mediante una constante que esa página define antes de incluir
+la cabecera. El resto del sitio —catálogo, panel de administración,
+formularios de sesión, que son las superficies realmente atacables— conserva
+la política estricta. Es un ejemplo de principio de mínimo privilegio aplicado
+a la CSP: no se relaja la política global para resolver un caso concreto.
+
+### 14.12 Un atributo `hidden` que no ocultaba nada
+
+**Síntoma.** La capa de carga del emulador no desaparecía nunca y, al quedar
+encima, interceptaba todos los clics del juego.
+
+**Causa.** El atributo `hidden` de HTML equivale a `display: none`, pero
+cualquier regla CSS con `display` lo sobrescribe. La capa tenía
+`display: grid` para centrar su contenido, y esa regla ganaba.
+
+**Solución.** Una regla global `[hidden] { display: none !important }`. Es uno
+de los poquísimos usos justificados de `!important`: restituye el
+comportamiento que el navegador ya debería garantizar.
+
+### 14.13 Un selector demasiado amplio deformaba la barra del emulador
+
+**Síntoma.** La barra de controles del emulador aparecía estirada hasta ocupar
+media pantalla.
+
+**Diagnóstico.** Se midió el elemento: **677 px de alto** donde debía medir
+menos de 60.
+
+**Causa.** Una regla `#juego > div { height: 100% }` pensada para el lienzo
+alcanzaba también a `.ejs_menu_bar`, que es hermana suya.
+
+**Solución.** Acotar el selector a `.ejs_canvas_parent`. Tras el cambio la
+barra midió **57 px**.
+
+### 14.14 El panel de administración desbordaba en ventanas estrechas
+
+**Síntoma.** Al reducir la ventana, el menú lateral se montaba sobre la tabla
+y aparecía barra de desplazamiento horizontal.
+
+**Diagnóstico.** Se midió el contenido: **957 px de ancho dentro de una
+ventana de 774 px**.
+
+**Causa.** Dos problemas a la vez. El menú llevaba `position: sticky` también
+en móvil, donde no hay columna lateral; y los elementos de una rejilla CSS
+tienen `min-width: auto` por omisión, así que una tabla ancha empuja su
+columna en lugar de recortarse.
+
+**Solución.** Mover `sticky` dentro de `@media (min-width: 980px)` y declarar
+`.admin > * { min-width: 0 }`. El desbordamiento pasó a **0 px**.
+
+### 14.15 Una caché de un mes impedía ver los cambios
+
+**Síntoma.** Correcciones de CSS y JavaScript que no aparecían en el navegador,
+repetidamente, durante días.
+
+**Causa.** El `.htaccess` declaraba `Cache-Control: max-age=2592000` (30 días)
+para los recursos estáticos. El navegador no volvía a pedirlos.
+
+**Solución.** Tres medidas combinadas:
+
+1. Un ayudante `recurso()` que añade a cada URL la fecha de modificación del
+   archivo (`?v=` más `filemtime` en hexadecimal). Al cambiar el archivo cambia
+   la URL, y el navegador la trata como un recurso nuevo.
+2. `Cache-Control: no-cache, must-revalidate` para `css`, `js` y `mjs`.
+3. El *service worker* pasó a estrategia **red primero** para el código, y
+   mantiene **caché primero** solo para recursos que no cambian.
+
+La lección: una caché larga es correcta, pero exige una forma de invalidarla.
+
+### 14.16 `100vh` no es la altura visible en el móvil
+
+**Síntoma.** En el teléfono, la parte inferior del juego quedaba cortada bajo
+la barra del navegador.
+
+**Causa.** `100vh` mide la ventana **sin** las barras del navegador, que en
+iOS y Android aparecen y desaparecen al desplazarse.
+
+**Solución.** Usar `100dvh` (*dynamic viewport height*), que se ajusta a la
+altura realmente visible, dentro de una consulta `(hover: none)` para aplicarlo
+solo en dispositivos táctiles.
+
+### 14.17 El juego salía estirado en pantalla completa
+
+**Síntoma.** En pantalla completa la imagen se veía deformada, más ancha de lo
+que debía.
+
+**Diagnóstico.** Se midieron el lienzo y su contenido:
+
+```
+lienzo HTML :  907 × 679 px   (relación 1.34)
+dibujo real :  774 × 646 px   (relación 1.20)
+```
+
+**Causa.** El lienzo se estiraba para llenar el contenedor, y el contenido se
+deformaba con él.
+
+**Solución.** `object-fit: contain` sobre el lienzo, más
+`image-rendering: pixelated` para que el escalado no difumine el pixel art.
+Tras el cambio el dibujo midió **774 × 580 px**, relación **1.33**, que es la
+correcta.
+
+### 14.18 El fondo animado parpadeaba una vez y se congelaba
+
+**Síntoma.** El fondo decorativo del reproductor se animaba un instante y se
+quedaba quieto.
+
+**Causa.** La animación modificaba `backdrop-filter`, propiedad que el
+navegador no puede animar en la tarjeta gráfica: cada fotograma obliga a
+recalcular el desenfoque de todo lo que hay detrás.
+
+**Solución.** Sustituirla por manchas con gradiente radial animadas con
+`transform`, que sí se resuelven en la tarjeta gráfica. Regla general: animar
+solo `transform` y `opacity`.
+
+### 14.19 El texto del botón de inicio salía desplazado
+
+**Síntoma.** La palabra del botón de arranque aparecía 16 px por debajo de su
+centro.
+
+**Causa.** El estilo original del emulador centraba el texto con
+`line-height: 45px`, contando con un botón de esa altura exacta. Al añadir
+`padding: 16px 38px` el botón creció, pero la altura de línea siguió fija.
+
+**Solución.** Centrar con `display: flex` y `line-height: 1`, que no depende de
+la altura del contenedor.
+
+### 14.20 El `php.ini` que se editaba no era el que mandaba
+
+**Síntoma.** Los límites de subida no cambiaban por mucho que se editara la
+configuración.
+
+**Diagnóstico.** Dos descubrimientos encadenados. Primero, Apache cargaba
+**PHP 8.0.1** mientras se editaba el `php.ini` de **PHP 8.1.0**. Y después,
+corregido eso, los límites seguían sin moverse.
+
+**Causa real.** El propio `.htaccess` del proyecto fijaba los valores:
+
+```apache
+php_value upload_max_filesize 128M
+php_value post_max_size       130M
+```
+
+Cuando PHP corre como módulo de Apache, las directivas `php_value` del
+`.htaccess` **tienen prioridad sobre el `php.ini`**.
+
+**Solución.** Subir los límites en el `.htaccess`, que es donde mandan, y
+declararlos tanto para `mod_php` como para `mod_php7` para no depender de la
+versión instalada. Lección: antes de editar configuración, comprobar **qué
+configuración se está aplicando de verdad**.
+
+### 14.21 Un formulario «incompleto» que estaba completo
+
+**Síntoma.** Al subir una ROM de PlayStation de 170 MB, el servidor respondía
+«El campo título es obligatorio», con el campo claramente relleno.
+
+**Causa.** Cuando el cuerpo de una petición supera `post_max_size`, PHP lo
+**descarta entero antes de que el script arranque**: `$_POST` y `$_FILES`
+llegan vacíos y no queda ni un código de error al que agarrarse. El validador,
+al no encontrar el título, daba el mensaje que le correspondía. El mensaje era
+correcto y engañoso a la vez.
+
+**Solución.** Un guardián en el arranque que detecta la situación por sus tres
+señales simultáneas: petición `multipart`, `CONTENT_LENGTH` mayor que cero y
+`$_POST`/`$_FILES` vacíos. En ese caso responde **413** con un mensaje que
+explica lo que pasó y cuál es el límite real. Verificado después con una subida
+de **178 258 521 bytes**, que llegó completa.
+
+### 14.22 Neo Geo: tres fallos encadenados
+
+El soporte de Neo Geo descubrió tres problemas distintos, uno detrás de otro.
+Es el caso más instructivo del proyecto, porque cada corrección destapaba el
+siguiente fallo.
+
+**(a) «Romset is unknown».** El emulador rechazaba el juego. Los núcleos de
+arcade identifican el conjunto de ROMs **por el nombre del archivo ZIP**, no
+por su contenido, y el proyecto servía las ROMs con un nombre derivado del
+título. Se añadió la columna `archivo_original` para conservar el nombre con el
+que se subió el archivo y servirlo con él.
+
+**(b) El BIOS se descomprimía solo.** Resuelto lo anterior, el emulador seguía
+fallando. Leyendo el código del motor se encontró que, por omisión, extrae el
+archivo de BIOS; pero el núcleo de arcade **necesita el `neogeo.zip` intacto**.
+Se activó `EJS_dontExtractBIOS` para los núcleos de esa familia.
+
+**(c) Una URL usada como ruta de archivo.** El arranque se quedaba congelado al
+100 % con un `ErrnoError`. El motor escribe el BIOS en su sistema de archivos
+virtual con `FS.writeFile(url, datos)`, es decir, **usa la URL completa como
+nombre de archivo**. Con barras dentro, la ruta no existía. Se pasó a servir el
+BIOS con un nombre plano (`neogeo.zip`) mediante una reescritura en
+`.htaccess`.
+
+**Verificación.** Con los tres corregidos, el juego arrancó. Se comprobó que
+estaba ejecutándose de verdad midiendo su memoria: un estado de **414 144
+bytes**, con **267 bytes cambiando cada 2,5 segundos**.
+
+### 14.23 Una regresión propia dejó PlayStation sin funcionar
+
+**Síntoma.** Un juego de PlayStation que funcionaba perfectamente dejó de
+arrancar tras el trabajo de Neo Geo.
+
+**Causa.** Al generalizar el soporte de BIOS se marcó la consola PlayStation
+con `bios_requerido = 1`. Pero el núcleo `pcsx_rearmed` **emula el BIOS por
+software** y no necesita el archivo original; al exigirlo, el juego dejaba de
+cargar.
+
+**Solución.** Devolver la bandera a 0 para esa consola. Caso de libro de
+regresión: una función nueva rompió otra que ya funcionaba, y solo se detectó
+porque se volvió a probar lo anterior.
+
+### 14.24 Un BIOS subido a la consola equivocada
+
+**Síntoma.** Un segundo juego de Neo Geo fallaba pese a existir ya el BIOS.
+
+**Causa.** El juego se había dado de alta en «Arcade (FBNeo)» y el BIOS en «Neo
+Geo». Son entradas distintas en la base de datos, aunque compartan núcleo de
+emulación.
+
+**Solución.** Si la consola del juego no tiene BIOS propio, se busca uno
+registrado en **otra consola que use el mismo núcleo**. Corrige el error humano
+sin obligar a subir el archivo dos veces.
+
+### 14.25 El teléfono se reiniciaba a mitad de partida
+
+**Síntoma.** En el móvil, la descarga terminaba pero el juego no arrancaba; y
+si arrancaba, al rato la página se recargaba sola.
+
+**Causa.** `EJS_cacheLimit` vale por omisión **1 073 741 824 bytes** (1 GB).
+Con ese tope, el motor guarda una copia de cada ROM en IndexedDB **además** de
+la que tiene en memoria. Con discos de PlayStation de varios cientos de
+megabytes, el navegador móvil agotaba la memoria y mataba la pestaña.
+
+**Solución.** Bajar el tope a 32 MB. Los cartuchos pequeños (NES, SNES, Game
+Boy, GBA) se siguen cacheando y cargan al instante; los pesados se descargan
+cada vez pero no duplican memoria.
+
+> **Nota para un despliegue remoto.** Este compromiso es correcto sirviendo las
+> ROMs desde la misma máquina, donde «descargar» es leer del disco local. Si
+> las ROMs pasaran a servirse desde un almacenamiento externo, los títulos
+> grandes se volverían a transferir **en cada partida**. Convendría entonces
+> elevar el tope en escritorio y mantenerlo bajo en móvil.
+
+### 14.26 Dos instalaciones de MAMP y un PHP inesperado
+
+**Síntoma.** El sitio dejó de servirse por completo, con error 500 en todas las
+páginas.
+
+**Diagnóstico.** Apache estaba cargando **PHP 7.4.16**, mientras que el
+proyecto exige PHP 8 (usa `match`, `str_contains` y tipos de unión).
+
+**Causa.** Había **dos MAMP instalados**: la versión gratuita y MAMP PRO. El
+servicio de MAMP PRO llevaba semanas ocupando los puertos con su propia
+configuración, y además apuntaba a un directorio de datos de MySQL distinto,
+sin la base del proyecto.
+
+**Solución.** Detener MAMP PRO y arrancar la versión que tiene la configuración
+del proyecto. Lección operativa: cuando el entorno falla de forma inexplicable,
+verificar **qué proceso está escuchando realmente** antes de tocar nada.
+
+### 14.27 Bucle infinito de redirecciones tras un proxy inverso
+
+**Síntoma.** Al desplegar en el *hosting* gratuito, el sitio quedó inaccesible:
+el navegador informaba de demasiadas redirecciones.
+
+**Causa.** `bootstrap.php` decidía si la petición venía por HTTPS mirando solo
+`$_SERVER['HTTPS']`. En un *hosting* compartido ese valor llega **siempre
+vacío**, porque el cifrado lo termina un proxy delante de PHP. Con
+`FORZAR_HTTPS` activo, PHP creía que cada petición era insegura y redirigía a
+HTTPS indefinidamente. El mismo error causaba otros dos daños silenciosos: la
+cabecera HSTS no se emitía nunca y la cookie de sesión no se marcaba `Secure`.
+
+**Solución.** Normalizar `$_SERVER['HTTPS']` a partir de `X-Forwarded-Proto`,
+**solo cuando `CONFIAR_PROXY` está activo**, porque un cliente puede falsificar
+esa cabecera si no hay un proxy delante que la filtre.
+
+**Verificación.** Con el sitio servido tras un proxy simulado: sin la cabecera
+responde 301 hacia HTTPS, y con ella responde 200 —antes era el bucle— emitiendo
+HSTS y la cookie con `Secure`.
+
+### 14.28 El esquema no se podía importar en *hosting* compartido
+
+**Síntoma.** `schema.sql` fallaba con «Access denied» al importarlo.
+
+**Causa.** El archivo empieza con `CREATE DATABASE` y `USE retrocloud`. En un
+*hosting* compartido el nombre de la base lo asigna el panel y el usuario no
+tiene permiso para crear bases.
+
+**Solución.** Versiones `schema-hosting.sql` y `seed-hosting.sql` sin esas
+sentencias. El *seed* de *hosting* además regenera las contraseñas de las
+cuentas de prueba: las del *seed* original están documentadas en texto claro en
+un repositorio público, de modo que desplegarlo tal cual dejaba la cuenta de
+administrador abierta a cualquiera que encontrara el sitio.
+
+### 14.29 Las carpetas necesarias no llegaban al clon
+
+**Síntoma.** Un clon recién hecho del repositorio no arrancaba.
+
+**Causa.** El `.gitignore` ignora `logs/` y `storage/roms/`, y después intenta
+conservar sus `.gitkeep` con `!`. Pero **git no rescata archivos que están
+dentro de una carpeta ya ignorada**: ninguno de los siete `.gitkeep` llegó a
+versionarse, así que las carpetas no existían al clonar.
+
+**Solución.** Un guion de preparación (`deploy/preparar-servidor.sh`) que crea
+las carpetas, protege `logs/` con su propio `.htaccess` y genera
+`src/config.php` desde la plantilla.
+
+### 14.30 `php_flag` devuelve error 500 con PHP-FPM
+
+**Síntoma.** Error 500 en todo el sitio tras subir los archivos al *hosting*.
+
+**Causa.** `storage/.htaccess` usaba `php_flag` para desactivar la ejecución de
+PHP en esa carpeta. Esa directiva **solo existe cuando PHP corre como módulo de
+Apache**; con PHP-FPM o CGI, que es lo habitual en *hosting* compartido, Apache
+no la reconoce y aborta.
+
+**Solución.** Envolverla en `<IfModule mod_php.c>`. La protección real de esa
+carpeta no depende de ella: el contenido vive fuera del *document root* y se
+sirve siempre a través de un script que valida la sesión.
+
+### 14.31 El emulador didáctico se colgaba al ir paso a paso
+
+**Síntoma.** En el laboratorio de CHIP-8, el programa de la pelota no avanzaba
+del primer fotograma al recorrerlo con el botón «Paso».
+
+**Causa.** Los temporizadores de CHIP-8 solo se decrementaban mientras el
+emulador estaba en marcha. El programa espera al temporizador dando vueltas a
+un bucle de tres instrucciones, de modo que paso a paso se quedaba ahí para
+siempre.
+
+**Solución.** En el hardware real los temporizadores cuentan por reloj de pared
+aunque el procesador esté detenido. Ahora bajan en cada fotograma, con
+independencia de si la ejecución está activa.
+
+**Verificación.** Tras el cambio, el programa completó **2 823 instrucciones en
+4 segundos**, invirtiendo el sentido en los cuatro bordes.
+
+### 14.32 El panel de código secuestraba el desplazamiento de la página
+
+**Síntoma.** Con el emulador didáctico en marcha era imposible leer nada por
+encima del panel de desensamblado: la página se devolvía sola hacia abajo.
+
+**Causa.** El seguimiento de la línea activa usaba `scrollIntoView()`, que
+**desplaza todos los contenedores hasta la ventana**, no solo el panel. Con el
+emulador corriendo, la página se reposicionaba 60 veces por segundo. Además, el
+panel se reconstruía entero en cada fotograma —34 filas mediante `innerHTML`—,
+y reemplazar el HTML destruye la posición de desplazamiento.
+
+**Solución.** Calcular el desplazamiento a mano sobre el `scrollTop` del panel,
+que no toca la página; construir la lista una sola vez al cargar el programa y
+después solo mover la clase del resaltado; y forzar `scroll-behavior: auto` en
+ese panel, que heredaba el desplazamiento suave de la página y convertía cada
+ajuste en una animación que la siguiente interrumpía.
+
+**Verificación.** Comparando las dos situaciones con el mismo salto: con el
+emulador **detenido** la página derivaba de 610 a 684 px (era la animación de
+`scroll-behavior: smooth` frenando, no el emulador); **en marcha** a 700
+instrucciones por segundo, ocho muestras consecutivas durante 2,4 s dieron
+exactamente **600 px**.
+
+### 14.33 Un recomendador sin nada que recomendar
+
+**Síntoma.** Con los datos reales, la sección «Para ti» no aparecía para el
+usuario principal.
+
+**Causa.** Ese usuario ya había jugado **los 15 juegos publicados**. El motor
+descarta lo ya jugado, así que no quedaba ningún candidato y devolvía una lista
+vacía.
+
+**Solución.** Es el problema del **agotamiento del catálogo**, en el extremo
+opuesto al arranque en frío. La respuesta no es una lista vacía sino cambiar de
+pregunta: ya no «qué probar» sino «qué retomar». La nota mezcla cuánto gustó
+cada juego con cuánto hace que no se abre, con olvido logarítmico por la misma
+razón que el tiempo jugado: la diferencia entre 1 y 7 días importa, la que hay
+entre 60 y 90 ya no.
+
+### 14.34 Un porcentaje de afinidad que no era una afinidad
+
+**Síntoma.** Sin sesión iniciada, las seis tarjetas recomendadas mostraban
+todas **100 %**.
+
+**Causa.** En la estrategia de popularidad la nota es `log(1 + veces_jugado)`,
+que no está en la escala 0-1 y quedaba topada en 1 al formatearla.
+
+**Solución.** No enviar el valor en ese modo y no pintar la insignia. Mostrar
+una cifra que no significa nada es exactamente lo que critica el panel de
+transparencia del propio sistema. Verificado: **0 insignias** sin sesión, y
+92 / 80 / 55 / 51 % con historial.
+
+### 14.35 Claves numéricas convertidas en enteros
+
+**Síntoma.** El asistente del catálogo abortaba con un `TypeError` al escribir
+cualquier frase.
+
+**Causa.** La tabla de décadas usaba claves como `'80'` y `'2000'`. **PHP
+convierte en enteros las claves de array que parecen números**, así que
+`str_contains()` recibía un `int` donde esperaba una cadena.
+
+**Solución.** Convertir explícitamente a cadena al recorrer la tabla. Es una
+peculiaridad del lenguaje que no avisa hasta que algo la toca.
+
+---
+
+### Lecciones transversales
+
+Repasando los treinta y cinco casos anteriores, se repiten cinco patrones que
+merecen enunciarse por separado:
+
+1. **Medir antes de corregir.** Los fallos de interfaz (14.13, 14.14, 14.17) se
+   resolvieron en minutos una vez medidos, después de intentos infructuosos a
+   ciegas. Un número —677 px, 957 px, relación 1.34 frente a 1.20— convierte una
+   impresión en un diagnóstico.
+
+2. **El mensaje de error correcto puede ser engañoso.** En 14.21 el validador
+   decía la verdad: el campo faltaba. Lo que no podía saber era *por qué*. La
+   corrección no fue cambiar el mensaje sino detectar la causa real un nivel
+   más arriba.
+
+3. **Verificar qué se está ejecutando de verdad.** En 14.20 se editó la
+   configuración de una versión de PHP distinta de la activa; en 14.26 había dos
+   servidores instalados. Ambos costaron horas de buscar en el sitio
+   equivocado.
+
+4. **Toda corrección es una regresión en potencia.** El caso 14.23 lo muestra
+   sin adornos: generalizar el soporte de BIOS rompió una consola que
+   funcionaba, y solo se detectó por volver a probar lo anterior.
+
+5. **Leer la fuente cuando la documentación no alcanza.** Los tres fallos de
+   Neo Geo (14.22) y el de la caché en móvil (14.25) se resolvieron leyendo el
+   código del motor de emulación. `dontExtractBIOS`, `FS.writeFile(t, …)` y el
+   valor por omisión `1073741824` no están documentados en ninguna parte.
+
 
 ---
 
