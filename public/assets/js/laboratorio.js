@@ -52,6 +52,8 @@ class Laboratorio {
     this.acumulador = 0;
     this.ultimoInstante = 0;
     this.programa = null;
+    this.filasCodigo = [];
+    this.filaActiva = null;
 
     this._cachearNodos();
     this._construirRegistros();
@@ -240,7 +242,7 @@ class Laboratorio {
     this.nodoAviso.hidden = true;
 
     this._pintarTodo();
-    this._pintarCodigo();
+    this._construirCodigo();
   }
 
   reiniciar() {
@@ -249,7 +251,7 @@ class Laboratorio {
     this.pausar();
     this.nodoAviso.hidden = true;
     this._pintarTodo();
-    this._pintarCodigo();
+    this._construirCodigo();
   }
 
   alternarCarrera() {
@@ -437,27 +439,99 @@ class Laboratorio {
    * cuales lo son. Por eso al final de "Pelota con rebotes" aparecen
    * lineas sin sentido: son el dibujo de la pelota leido como codigo.
    */
-  _pintarCodigo() {
+  /**
+   * Construye la lista UNA vez, al cargar un programa.
+   *
+   * Antes esto se rehacia entero en cada fotograma. Ademas de ser un
+   * derroche (34 filas x 60 veces por segundo), reemplazar el innerHTML
+   * destruye la posicion del scroll, de modo que el panel era
+   * imposible de leer mientras el emulador corria.
+   */
+  _construirCodigo() {
     const m = this.maquina;
     const fin = INICIO_PROGRAMA + (this.programa?.bytes.length || 0);
-    const filas = [];
+
+    this.nodoCodigo.innerHTML = '';
+    this.filasCodigo = [];
+    this.filaActiva = null;
+
+    const frag = document.createDocumentFragment();
 
     for (let dir = INICIO_PROGRAMA; dir < fin; dir += 2) {
-      const opcode = (m.memoria[dir] << 8) | m.memoria[dir + 1];
-      const actual = dir === m.PC;
-      filas.push(
-        '<li class="codigo__fila' + (actual ? ' is-actual' : '') + '">'
-        + '<span class="codigo__dir">' + hex(dir, 3) + '</span>'
-        + '<span class="codigo__bytes">' + hex(m.memoria[dir]) + ' ' + hex(m.memoria[dir + 1]) + '</span>'
-        + '<span class="codigo__asm">' + Chip8.desensamblar(opcode) + '</span>'
-        + '</li>'
-      );
+      const li = document.createElement('li');
+      li.className = 'codigo__fila';
+      li.innerHTML =
+        '<span class="codigo__dir">' + hex(dir, 3) + '</span>'
+        + '<span class="codigo__bytes"></span>'
+        + '<span class="codigo__asm"></span>';
+
+      this.filasCodigo.push({
+        dir,
+        nodo: li,
+        bytes: li.querySelector('.codigo__bytes'),
+        asm: li.querySelector('.codigo__asm'),
+        ultimoOpcode: -1,
+      });
+
+      frag.appendChild(li);
     }
 
-    this.nodoCodigo.innerHTML = filas.join('');
+    this.nodoCodigo.appendChild(frag);
+    this._pintarCodigo();
+  }
 
-    const activa = this.nodoCodigo.querySelector('.is-actual');
-    if (activa) activa.scrollIntoView({ block: 'nearest' });
+  /**
+   * Refresca la lista ya construida: mueve el resaltado y reescribe
+   * solo las filas cuyos bytes hayan cambiado de verdad (LD [I], Vx
+   * puede reescribir memoria en caliente).
+   */
+  _pintarCodigo() {
+    const m = this.maquina;
+    if (!this.filasCodigo || this.filasCodigo.length === 0) return;
+
+    for (const f of this.filasCodigo) {
+      const opcode = (m.memoria[f.dir] << 8) | m.memoria[f.dir + 1];
+      if (opcode !== f.ultimoOpcode) {
+        f.ultimoOpcode = opcode;
+        f.bytes.textContent = hex(m.memoria[f.dir]) + ' ' + hex(m.memoria[f.dir + 1]);
+        f.asm.textContent = Chip8.desensamblar(opcode);
+      }
+    }
+
+    const indice = (m.PC - INICIO_PROGRAMA) >> 1;
+    const nueva = this.filasCodigo[indice]?.nodo ?? null;
+
+    if (nueva === this.filaActiva) return;   // nada que mover
+
+    this.filaActiva?.classList.remove('is-actual');
+    this.filaActiva = nueva;
+
+    if (nueva) {
+      nueva.classList.add('is-actual');
+      this._seguirFila(nueva);
+    }
+  }
+
+  /**
+   * Mantiene a la vista la fila activa moviendo UNICAMENTE el scroll
+   * interno del panel.
+   *
+   * scrollIntoView() hacia esto mismo en una linea, pero sube por todos
+   * los contenedores hasta la ventana: con el emulador corriendo, la
+   * pagina se reposicionaba 60 veces por segundo y no habia forma de
+   * leer nada de arriba. Calcular el desplazamiento a mano es mas
+   * codigo, pero no toca el scroll de la pagina.
+   */
+  _seguirFila(nodo) {
+    const cont = this.nodoCodigo;
+    const arriba = nodo.offsetTop - cont.offsetTop;
+    const abajo  = arriba + nodo.offsetHeight;
+
+    if (arriba < cont.scrollTop) {
+      cont.scrollTop = arriba;
+    } else if (abajo > cont.scrollTop + cont.clientHeight) {
+      cont.scrollTop = abajo - cont.clientHeight;
+    }
   }
 }
 

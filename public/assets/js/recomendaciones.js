@@ -51,9 +51,10 @@ function tarjeta(r) {
     <a class="reco__item" href="${escapar(base + 'jugar.php?id=' + r.id)}">
       <div class="reco__portada">
         ${portada}
+        ${r.afinidad === null || r.afinidad === undefined ? '' : `
         <span class="reco__afinidad" title="Afinidad estimada por el modelo">
           ${escapar(String(r.afinidad))}%
-        </span>
+        </span>`}
       </div>
       <div class="reco__cuerpo">
         <strong class="reco__titulo">${escapar(r.titulo)}</strong>
@@ -74,6 +75,19 @@ function pintarDiagnostico(d) {
   if (!d) {
     panel.innerHTML = '<p class="text-sm text-debil mb-0">'
       + 'Inicia sesion para ver como razona el modelo con tus datos.</p>';
+    return;
+  }
+
+  if (d.estrategia === 'retomar') {
+    panel.innerHTML = `
+      <p class="text-sm mb-0">
+        <strong>Estrategia: retomar.</strong> ${escapar(d.motivo ?? '')}
+        Es el <em>agotamiento del catalogo</em>, el problema contrario al
+        arranque en frio: en vez de faltar datos, sobran. La nota mezcla
+        cuanto te gusto cada juego con cuanto hace que no lo abres, porque
+        uno que te encanto y dejaste hace semanas es mejor sugerencia que
+        uno que cerraste hace diez minutos.
+      </p>`;
     return;
   }
 
@@ -165,11 +179,12 @@ async function cargar() {
   const diag = d.diagnostico ?? null;
   const modo = diag?.estrategia ?? d.estrategia;
 
-  estrategia.textContent = modo === 'popularidad'
-    ? 'Lo mas jugado de la plataforma, repartido entre consolas.'
-    : 'Calculado a partir de tu historial de juego.';
+  estrategia.textContent = {
+    popularidad: 'Lo mas jugado de la plataforma, repartido entre consolas.',
+    retomar: 'Ya jugaste todo el catalogo: esto es lo que conviene retomar.',
+  }[modo] ?? 'Calculado a partir de tu historial de juego.';
 
-  pintarDiagnostico(diag ?? (modo === 'popularidad' ? { estrategia: 'popularidad' } : null));
+  pintarDiagnostico(diag ?? (modo ? { estrategia: modo } : null));
 
   seccion.hidden = false;
 }

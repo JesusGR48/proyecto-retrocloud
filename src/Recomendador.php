@@ -171,8 +171,13 @@ final class Recomendador
             ];
         }
 
+        /* Catalogo agotado: el usuario ya jugo TODO lo publicado y no
+           queda ningun candidato nuevo. Es el otro problema clasico de
+           un recomendador, al otro extremo del arranque en frio, y la
+           respuesta honesta no es una lista vacia sino cambiar de
+           pregunta: ya no "que probar" sino "que retomar". */
         if ($candidatos === []) {
-            return self::porPopularidad($catalogo, $limite, false, $mias);
+            return self::paraRetomar($usuarioId, $catalogo, $mias, $limite);
         }
 
         $elegidos = self::ordenarConDiversidad($candidatos, $limite);
@@ -725,6 +730,127 @@ final class Recomendador
     }
 
     // =================================================================
+    // CATALOGO AGOTADO
+    // =================================================================
+
+    /**
+     * Dias desde la ultima vez que el usuario toco cada juego.
+     *
+     * @return array<int, float>
+     */
+    private static function diasDesdeUltimaVez(int $usuarioId): array
+    {
+        $filas = Database::filas(
+            'SELECT juego_id,
+                    TIMESTAMPDIFF(HOUR, MAX(iniciada_en), NOW()) AS horas
+               FROM sesiones_juego
+              WHERE usuario_id = :uid
+              GROUP BY juego_id',
+            ['uid' => $usuarioId]
+        );
+
+        $dias = [];
+        foreach ($filas as $f) {
+            $dias[(int) $f['juego_id']] = max(0.0, ((float) $f['horas']) / 24.0);
+        }
+        return $dias;
+    }
+
+    /**
+     * Sugerencias para retomar, cuando ya no queda nada por estrenar.
+     *
+     * La nota mezcla dos cosas que tiran en sentidos distintos: cuanto
+     * le gusto el juego (la afinidad ya calculada) y cuanto hace que no
+     * lo toca. Un juego que le encanto y abandono hace semanas es mejor
+     * sugerencia que uno que le encanto y cerro hace diez minutos.
+     *
+     * El olvido es logaritmico por la misma razon que el tiempo jugado:
+     * la diferencia entre 1 y 7 dias importa, la que hay entre 60 y 90
+     * ya no.
+     *
+     * @param array<int,array<string,mixed>> $catalogo
+     * @param array<int,float> $mias
+     * @return array{recomendaciones: list<array<string,mixed>>, diagnostico: array<string,mixed>}
+     */
+    private static function paraRetomar(
+        ?int $usuarioId,
+        array $catalogo,
+        array $mias,
+        int $limite
+    ): array {
+        $dias = $usuarioId !== null ? self::diasDesdeUltimaVez($usuarioId) : [];
+
+        $candidatos = [];
+        foreach ($mias as $id => $afinidad) {
+            $j = $catalogo[$id] ?? null;
+            if ($j === null) {
+                continue;
+            }
+
+            $d = $dias[$id] ?? 0.0;
+
+            /* Entre 0 y 1: 0 dias -> 0.0, una semana -> ~0.55,
+               un mes -> ~0.85, a partir de ahi ya casi no sube. */
+            $olvido = log(1 + $d) / log(1 + 60);
+            $olvido = min(1.0, $olvido);
+
+            /* Se exige algo de las dos: un juego que no le gusto no
+               mejora por llevar meses parado. */
+            $nota = (0.55 * $afinidad) + (0.45 * $olvido);
+
+            $candidatos[$id] = [
+                'juego'        => $j,
+                'puntuacion'   => $nota,
+                'contenido'    => $afinidad,
+                'colaborativo' => 0.0,
+                'dias'         => $d,
+            ];
+        }
+
+        $elegidos = self::ordenarConDiversidad($candidatos, $limite);
+
+        $salida = [];
+        foreach ($elegidos as $c) {
+            $d = (int) round($c['dias']);
+            /* Concordancia de numero: "hace 1 meses" quedaba fatal. */
+            $plural = static fn(int $n, string $uno, string $varios): string =>
+                'hace ' . $n . ' ' . ($n === 1 ? $uno : $varios);
+
+            $semanas = (int) round($d / 7);
+            $meses   = (int) round($d / 30);
+
+            $cuando = match (true) {
+                $d <= 0  => 'hoy mismo',
+                $d === 1 => 'ayer',
+                $d < 7   => $plural($d, 'dia', 'dias'),
+                $d < 30  => $plural(max(1, $semanas), 'semana', 'semanas'),
+                default  => $plural(max(1, $meses), 'mes', 'meses'),
+            };
+
+            $salida[] = self::formatear(
+                $c['juego'],
+                $c['puntuacion'],
+                $c['contenido'] > 0.6
+                    ? "De lo que mas has jugado, y lo dejaste $cuando."
+                    : "Lo empezaste $cuando y quedo a medias."
+            );
+        }
+
+        return [
+            'recomendaciones' => $salida,
+            'diagnostico' => [
+                'estrategia'           => 'retomar',
+                'motivo'               => 'Ya jugaste todo el catalogo publicado: '
+                    . 'no queda nada por estrenar, asi que el modelo cambia de '
+                    . 'pregunta y ordena por lo que mas te gusto y hace mas '
+                    . 'tiempo que no tocas.',
+                'juegos_analizados'    => count($catalogo),
+                'juegos_con_historial' => count($mias),
+            ],
+        ];
+    }
+
+    // =================================================================
     // ARRANQUE EN FRIO
     // =================================================================
 
@@ -766,7 +892,7 @@ final class Recomendador
         foreach ($elegidos as $c) {
             $salida[] = self::formatear(
                 $c['juego'],
-                $c['puntuacion'],
+                null,
                 $c['juego']['veces_jugado'] > 0
                     ? 'Uno de los mas jugados de la plataforma.'
                     : 'Recien llegado al catalogo.'
@@ -789,8 +915,15 @@ final class Recomendador
     // Utilidades
     // =================================================================
 
-    /** @param array<string,mixed> $juego */
-    private static function formatear(array $juego, float $puntuacion, string $porque): array
+    /**
+     * @param array<string,mixed> $juego
+     * @param float|null $puntuacion null cuando la nota no es una
+     *        afinidad comparable (la estrategia de popularidad ordena
+     *        por veces jugadas, que no esta en la misma escala). En ese
+     *        caso no se enseña porcentaje: una cifra que no significa
+     *        nada es peor que ninguna cifra.
+     */
+    private static function formatear(array $juego, ?float $puntuacion, string $porque): array
     {
         return [
             'id'      => $juego['id'],
@@ -800,7 +933,9 @@ final class Recomendador
             'consola' => $juego['consola'],
             'genero'  => $juego['genero'],
             'anio'    => $juego['anio'],
-            'afinidad' => (int) round(min(1.0, $puntuacion) * 100),
+            'afinidad' => $puntuacion === null
+                ? null
+                : (int) round(min(1.0, max(0.0, $puntuacion)) * 100),
             'porque'  => $porque,
         ];
     }

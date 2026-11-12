@@ -2605,6 +2605,13 @@ body.sin-scroll {
   padding: .5rem;
   max-height: 340px;
   overflow-y: auto;
+
+  /* La pagina usa scroll-behavior: smooth, y este panel lo heredaba.
+     Como el seguimiento de la linea activa ajusta scrollTop en cuanto
+     cambia el PC, cada ajuste arrancaba una animacion que la siguiente
+     interrumpia: el panel daba tumbones en lugar de seguir la linea.
+     Aqui el movimiento tiene que ser instantaneo. */
+  scroll-behavior: auto;
   border: 1px solid var(--borde);
   border-radius: var(--radio-sm);
   background: var(--fondo-alto);
