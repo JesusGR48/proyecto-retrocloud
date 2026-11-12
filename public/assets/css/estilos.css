@@ -2221,3 +2221,456 @@ body.sin-scroll {
 
   a { color: #000; text-decoration: underline; }
 }
+
+/* =====================================================================
+   12. LABORATORIO DE EMULACION (laboratorio.php)
+   =====================================================================
+   Estilos de la pagina divulgativa que enseña el interior del emulador
+   de CHIP-8. Reutiliza los componentes generales (.tarjeta, .btn,
+   .tabla) y solo anade lo propio de esta vista.
+   ===================================================================== */
+
+/* --- Entradilla ---------------------------------------------------- */
+.lab-intro {
+  max-width: 68ch;
+  margin: 0 auto 2.5rem;
+  text-align: center;
+}
+
+.lab-etiqueta {
+  display: inline-block;
+  margin: 0 0 .75rem;
+  padding: .25rem .75rem;
+  border-radius: var(--radio-full);
+  background: color-mix(in srgb, var(--acento) 16%, transparent);
+  color: var(--acento);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.lab-titulo {
+  margin: 0 0 1rem;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  line-height: 1.15;
+}
+
+.lab-bajada {
+  margin: 0 0 .85rem;
+  color: var(--texto-tenue);
+  line-height: 1.65;
+}
+
+/* --- Las cuatro fases del ciclo ------------------------------------ */
+.lab-fases {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 0 0 2rem;
+  padding: 0;
+  list-style: none;
+}
+
+.lab-fases li {
+  position: relative;
+  padding: 1.1rem 1.1rem 1.1rem 3.2rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--fondo-tarjeta);
+}
+
+.lab-fases__num {
+  position: absolute;
+  top: 1.05rem;
+  left: 1rem;
+  display: grid;
+  place-items: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: var(--radio-full);
+  background: var(--primario);
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+.lab-fases strong { display: block; margin-bottom: .25rem; }
+
+.lab-fases p {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: .85rem;
+  line-height: 1.5;
+}
+
+/* --- Secciones y titulos ------------------------------------------- */
+.lab-seccion { margin-bottom: 1.5rem; }
+
+.lab-h2 {
+  margin: 0 0 .5rem;
+  font-size: 1.05rem;
+  color: var(--acento);
+}
+
+.lab-h3 {
+  margin: 1.4rem 0 .5rem;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--texto-debil);
+}
+
+.lab-h3:first-of-type { margin-top: .6rem; }
+
+/* --- Selector de programas ----------------------------------------- */
+.lab-programas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem;
+  margin: 1rem 0;
+}
+
+.lab-prog {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  line-height: 1.3;
+}
+
+.lab-prog.is-activo {
+  border-color: var(--primario);
+  background: color-mix(in srgb, var(--primario) 18%, transparent);
+  color: var(--texto);
+}
+
+.lab-resumen {
+  margin: 0;
+  padding: .85rem 1rem;
+  border-left: 3px solid var(--primario);
+  border-radius: 0 var(--radio-sm) var(--radio-sm) 0;
+  background: var(--fondo-elevado);
+  color: var(--texto-tenue);
+  font-size: .9rem;
+  line-height: 1.6;
+}
+
+/* --- Rejilla principal --------------------------------------------- */
+.lab-rejilla {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.lab-panel > * { min-width: 0; }
+
+/* --- Pantalla ------------------------------------------------------- */
+.lab-pantalla-marco {
+  margin: .5rem 0 .4rem;
+  padding: 10px;
+  border-radius: var(--radio);
+  background: #06100c;
+  box-shadow: inset 0 0 40px rgba(61, 245, 176, .12);
+}
+
+#lab-pantalla {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  border-radius: var(--radio-sm);
+
+  /* Sin esto el navegador interpola y 2048 pixeles enormes se
+     convierten en una mancha borrosa. */
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.lab-centro { text-align: center; }
+
+/* --- Mandos --------------------------------------------------------- */
+.lab-mandos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin: 1rem 0 .85rem;
+}
+
+.lab-mandos .btn { flex: 1 1 auto; justify-content: center; }
+
+.lab-velocidad {
+  display: grid;
+  gap: .35rem;
+}
+
+.lab-velocidad input[type="range"] {
+  width: 100%;
+  accent-color: var(--primario);
+}
+
+.lab-aviso {
+  margin: .85rem 0 0;
+  padding: .75rem .9rem;
+  border: 1px solid color-mix(in srgb, var(--error) 45%, transparent);
+  border-radius: var(--radio-sm);
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  color: var(--texto);
+  font-size: .85rem;
+  line-height: 1.55;
+}
+
+/* --- Teclado hexadecimal -------------------------------------------- */
+.lab-teclado {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .4rem;
+  max-width: 280px;
+  margin-top: .6rem;
+}
+
+.tecla-hex {
+  padding: .7rem 0;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--fondo-elevado);
+  color: var(--texto);
+  font-family: var(--fuente-mono);
+  font-size: .95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transicion), transform var(--transicion);
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.tecla-hex:hover { background: var(--borde); }
+
+.tecla-hex.is-activa {
+  background: var(--primario);
+  border-color: var(--primario-claro);
+  color: #fff;
+  transform: translateY(1px);
+}
+
+/* --- Instruccion en curso ------------------------------------------- */
+.lab-instruccion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: .75rem;
+}
+
+.lab-opcode {
+  padding: .4rem .7rem;
+  border-radius: var(--radio-sm);
+  background: var(--fondo-elevado);
+  color: var(--acento);
+  font-family: var(--fuente-mono);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: .12em;
+}
+
+.lab-nemonico {
+  font-family: var(--fuente-mono);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+/* Desglose de los 16 bits en sus cuatro campos fijos. */
+.lab-desglose {
+  display: flex;
+  gap: .4rem;
+  margin-bottom: .85rem;
+}
+
+.bitcampo {
+  display: grid;
+  flex: 1 1 0;
+  gap: 2px;
+  padding: .4rem .3rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  text-align: center;
+  cursor: help;
+}
+
+.bitcampo em {
+  font-size: .62rem;
+  font-style: normal;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--texto-debil);
+}
+
+.bitcampo b {
+  font-family: var(--fuente-mono);
+  font-size: 1rem;
+  color: var(--primario-claro);
+}
+
+.lab-explicacion {
+  margin: 0;
+  padding: .85rem 1rem;
+  border-radius: var(--radio-sm);
+  background: var(--fondo-elevado);
+  color: var(--texto-tenue);
+  font-size: .9rem;
+  line-height: 1.65;
+  min-height: 4.5rem;
+}
+
+.lab-cambios {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: .3rem;
+}
+
+.lab-cambios li {
+  font-family: var(--fuente-mono);
+  font-size: .82rem;
+}
+
+.lab-cambios code {
+  display: inline-block;
+  min-width: 3.2em;
+  color: var(--acento);
+  background: none;
+  padding: 0;
+}
+
+/* --- Banco de registros --------------------------------------------- */
+.lab-registros {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .35rem;
+}
+
+.lab-registros--esp { grid-template-columns: repeat(5, 1fr); }
+
+.reg {
+  display: grid;
+  gap: 1px;
+  padding: .35rem .2rem;
+  border: 1px solid var(--borde-suave);
+  border-radius: var(--radio-sm);
+  background: var(--fondo-alto);
+  text-align: center;
+  transition: background 250ms ease, border-color 250ms ease;
+}
+
+.reg__nombre {
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--texto-debil);
+}
+
+.reg__valor {
+  font-family: var(--fuente-mono);
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.reg--especial { border-color: color-mix(in srgb, var(--aviso) 45%, transparent); }
+.reg--especial .reg__nombre { color: var(--aviso); }
+
+/* Destello del registro que acaba de cambiar: es la pieza que convierte
+   una tabla de numeros en algo que se entiende de un vistazo. */
+.reg.is-cambiado {
+  border-color: var(--acento);
+  background: color-mix(in srgb, var(--acento) 22%, transparent);
+}
+
+.reg.is-cambiado .reg__valor { color: var(--acento); }
+
+.reg.is-sonando {
+  border-color: var(--aviso);
+  background: color-mix(in srgb, var(--aviso) 20%, transparent);
+}
+
+.lab-contador { margin: 1rem 0 0; text-align: right; }
+
+/* --- Desensamblado --------------------------------------------------- */
+.lab-codigo {
+  margin: 1rem 0 0;
+  padding: .5rem;
+  max-height: 340px;
+  overflow-y: auto;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--fondo-alto);
+  list-style: none;
+}
+
+.codigo__fila {
+  display: grid;
+  grid-template-columns: 4.2em 5.2em 1fr;
+  gap: .75rem;
+  padding: .22rem .5rem;
+  border-radius: var(--radio-sm);
+  font-family: var(--fuente-mono);
+  font-size: .82rem;
+  white-space: nowrap;
+}
+
+.codigo__dir   { color: var(--texto-debil); }
+.codigo__bytes { color: var(--texto-tenue); }
+.codigo__asm   { color: var(--texto); }
+
+.codigo__fila.is-actual {
+  background: color-mix(in srgb, var(--primario) 26%, transparent);
+  box-shadow: inset 3px 0 0 var(--primario-claro);
+}
+
+.codigo__fila.is-actual .codigo__asm {
+  color: #fff;
+  font-weight: 600;
+}
+
+/* --- Notas y cierre --------------------------------------------------- */
+.lab-notas {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: .7rem;
+  color: var(--texto-tenue);
+  font-size: .9rem;
+  line-height: 1.65;
+}
+
+.lab-cierre p {
+  color: var(--texto-tenue);
+  line-height: 1.65;
+}
+
+.lab-tabla th[scope="row"] {
+  color: var(--texto-tenue);
+  font-weight: 500;
+  text-align: left;
+}
+
+/* --- Responsivo ------------------------------------------------------- */
+@media (min-width: 980px) {
+  .lab-rejilla { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .lab-registros { grid-template-columns: repeat(4, 1fr); }
+  .lab-registros--esp { grid-template-columns: repeat(3, 1fr); }
+  .codigo__fila { grid-template-columns: 3.6em 4.6em 1fr; gap: .5rem; font-size: .76rem; }
+  .lab-teclado { max-width: none; }
+}
+
+/* Quien pide menos animacion no necesita el destello de los registros. */
+@media (prefers-reduced-motion: reduce) {
+  .reg { transition: none; }
+}

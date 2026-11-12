@@ -146,6 +146,13 @@ $e = static fn(mixed $v): string => Validator::e($v);
         Catalogo
       </a>
 
+      <?php /* Pagina divulgativa: emulador de CHIP-8 escrito para el
+               proyecto, con su estado interno a la vista. No necesita
+               sesion porque no toca datos de nadie. */ ?>
+      <a class="barra__link" href="<?= $base ?>laboratorio.php"<?= $activo('laboratorio') ?>>
+        Laboratorio
+      </a>
+
       <?php if (Auth::autenticado()): ?>
         <a class="barra__link" href="<?= $base ?>perfil.php"<?= $activo('perfil') ?>>
           Mis partidas
