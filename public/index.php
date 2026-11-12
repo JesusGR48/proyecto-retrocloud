@@ -118,6 +118,38 @@ require __DIR__ . '/partes/cabecera.php';
   </div>
 <?php endif; ?>
 
+<?php /* ---------------------------------------------------------------
+     Recomendaciones personalizadas
+
+     La rellena recomendaciones.js desde /api/recomendaciones.php. Se
+     renderiza vacia y oculta: si el motor no devuelve nada (catalogo
+     vacio, API caida) la seccion no llega a aparecer y la portada
+     queda exactamente como antes.
+     --------------------------------------------------------------- */ ?>
+<section class="reco" id="reco" aria-labelledby="titulo-reco" hidden>
+
+  <div class="reco__cabecera">
+    <div>
+      <h2 id="titulo-reco" class="mb-0">
+        Para ti
+        <span class="insignia insignia--consola reco__sello">IA</span>
+      </h2>
+      <p class="reco__sub text-sm text-debil mb-0" id="reco-estrategia"></p>
+    </div>
+
+    <button type="button" class="btn btn--fantasma btn--sm" id="reco-porque"
+            aria-expanded="false" aria-controls="reco-diagnostico">
+      ¿Como decidio esto?
+    </button>
+  </div>
+
+  <?php /* Panel de transparencia: ensena los pesos reales del modelo.
+           Un recomendador que no sabe justificarse es una caja negra. */ ?>
+  <div class="reco__diagnostico" id="reco-diagnostico" hidden></div>
+
+  <div class="reco__lista" id="reco-lista"></div>
+</section>
+
 <section aria-labelledby="titulo-catalogo">
 
   <div class="flex items-center justify-between flex-wrap gap mb">
@@ -165,5 +197,5 @@ require __DIR__ . '/partes/cabecera.php';
 </section>
 
 <?php
-$scriptModulo = null;
+$scriptModulo = 'assets/js/recomendaciones.js';
 require __DIR__ . '/partes/pie.php';

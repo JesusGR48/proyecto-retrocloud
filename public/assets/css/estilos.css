@@ -2674,3 +2674,237 @@ body.sin-scroll {
 @media (prefers-reduced-motion: reduce) {
   .reg { transition: none; }
 }
+
+/* =====================================================================
+   13. RECOMENDACIONES (seccion "Para ti" de la portada)
+   =====================================================================
+   Estilos del motor de recomendaciones. La seccion entera nace con el
+   atributo hidden y solo se muestra si la API devuelve resultados.
+   ===================================================================== */
+
+.reco { margin-bottom: 2.25rem; }
+
+.reco__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-bottom: 1rem;
+}
+
+.reco__sello {
+  vertical-align: middle;
+  margin-left: .4rem;
+  letter-spacing: .06em;
+}
+
+.reco__sub { margin-top: .25rem; }
+
+/* --- Lista de sugerencias ------------------------------------------- */
+.reco__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 1rem;
+}
+
+.reco__item {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--fondo-tarjeta);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: transform var(--transicion), border-color var(--transicion),
+              box-shadow var(--transicion);
+}
+
+.reco__item:hover,
+.reco__item:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--primario);
+  box-shadow: var(--sombra);
+}
+
+.reco__portada {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: var(--fondo-elevado);
+}
+
+.reco__portada img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.reco__sinportada {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--primario-oscuro), var(--primario));
+  color: #fff;
+  font-family: var(--fuente-titulo);
+  font-size: 1.3rem;
+}
+
+/* Porcentaje de afinidad: la salida numerica del modelo, a la vista. */
+.reco__afinidad {
+  position: absolute;
+  top: .5rem;
+  right: .5rem;
+  padding: .15rem .45rem;
+  border-radius: var(--radio-full);
+  background: rgba(10, 10, 20, .78);
+  color: var(--acento);
+  font-family: var(--fuente-mono);
+  font-size: .7rem;
+  font-weight: 600;
+}
+
+.reco__cuerpo {
+  display: grid;
+  gap: .3rem;
+  padding: .75rem .85rem .9rem;
+}
+
+.reco__titulo {
+  font-size: .95rem;
+  line-height: 1.25;
+}
+
+.reco__meta {
+  font-size: .75rem;
+  color: var(--texto-debil);
+}
+
+/* La justificacion de cada sugerencia. Es la pieza que convierte una
+   lista opaca en algo que el usuario puede discutir. */
+.reco__porque {
+  margin-top: .25rem;
+  padding-top: .45rem;
+  border-top: 1px dashed var(--borde);
+  font-size: .76rem;
+  line-height: 1.45;
+  color: var(--texto-tenue);
+}
+
+/* --- Panel de transparencia ------------------------------------------ */
+.reco__diagnostico {
+  margin-bottom: 1rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--fondo-alto);
+}
+
+.reco__explica {
+  margin: 0 0 1rem;
+  color: var(--texto-tenue);
+  line-height: 1.65;
+}
+
+.reco__peso {
+  display: grid;
+  grid-template-columns: 11rem 1fr 3rem;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: .45rem;
+  font-size: .82rem;
+}
+
+.reco__barra {
+  height: 8px;
+  border-radius: var(--radio-full);
+  background: var(--fondo-elevado);
+  overflow: hidden;
+}
+
+.reco__barra i {
+  display: block;
+  height: 100%;
+  border-radius: var(--radio-full);
+  transition: width 400ms cubic-bezier(.4, 0, .2, 1);
+}
+
+.reco__barra .es-contenido    { background: var(--primario); }
+.reco__barra .es-colaborativo { background: var(--acento); }
+
+.reco__peso b {
+  font-family: var(--fuente-mono);
+  font-size: .78rem;
+  text-align: right;
+}
+
+.reco__nota { margin: .7rem 0 1.1rem; line-height: 1.55; }
+
+/* --- Perfil deducido -------------------------------------------------- */
+.reco__perfil {
+  display: grid;
+  gap: .5rem;
+  padding-top: .9rem;
+  border-top: 1px solid var(--borde-suave);
+}
+
+.reco__dim-cabecera {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--texto-debil);
+}
+
+.reco__dim {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+}
+
+.reco__dim-titulo {
+  min-width: 5.5rem;
+  font-size: .78rem;
+  color: var(--texto-tenue);
+}
+
+.reco__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .2rem .55rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-full);
+  background: var(--fondo-elevado);
+  font-size: .75rem;
+}
+
+.reco__chip i {
+  font-family: var(--fuente-mono);
+  font-style: normal;
+  font-size: .68rem;
+  color: var(--acento);
+}
+
+.reco__pie {
+  margin-top: .9rem;
+  padding-top: .7rem;
+  border-top: 1px solid var(--borde-suave);
+  line-height: 1.6;
+}
+
+/* --- Responsivo -------------------------------------------------------- */
+@media (max-width: 560px) {
+  .reco__lista { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .reco__peso { grid-template-columns: 8rem 1fr 2.6rem; font-size: .76rem; }
+  .reco__dim-titulo { min-width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reco__item { transition: none; }
+  .reco__item:hover { transform: none; }
+  .reco__barra i { transition: none; }
+}
