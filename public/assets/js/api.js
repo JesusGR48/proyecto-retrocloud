@@ -147,8 +147,22 @@ async function peticion(url, { metodo = 'GET', cuerpo = null, timeout = 45000 } 
     const mensaje = json?.error ?? `Error ${respuesta.status} del servidor.`;
     const error = new ErrorApi(mensaje, respuesta.status, json?.campos ?? {});
 
-    // 401: la sesion caduco. Redirigimos conservando el destino.
-    if (respuesta.status === 401 && !url.includes('accion=sesion')) {
+    /*
+     * 401: la sesion caduco. Redirigimos conservando el destino.
+     *
+     * Se excluyen los endpoints de autenticacion. El login responde 401
+     * cuando las credenciales no cuadran, y tratarlo como sesion caducada
+     * producia un sinsentido: quien escribia mal su contrasena no veia
+     * "usuario o contrasena incorrectos" sino "tu sesion expiro", y
+     * volvia a la misma pagina de login sin enterarse de nada. El error
+     * real nunca llegaba a la pantalla.
+     *
+     * Ahi el 401 no significa "tu sesion murio" sino "esas credenciales
+     * no son validas", y lo debe contar el formulario, no un redirigir.
+     */
+    const esAutenticacion = /accion=(sesion|login|registro)/.test(url);
+
+    if (respuesta.status === 401 && !esAutenticacion) {
       const volver = encodeURIComponent(location.pathname + location.search);
       location.href = `${ruta('login.php')}?volver=${volver}&expirada=1`;
     }
