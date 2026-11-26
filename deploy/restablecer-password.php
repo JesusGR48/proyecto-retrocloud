@@ -59,7 +59,17 @@ if ($oculto) {
 }
 
 // Mismas reglas que exige el registro del sitio.
-if (mb_strlen($pass) < 8) {
+/*
+ * Se mide con strlen() y no con mb_strlen() a proposito: este script
+ * corre desde la terminal, donde el PHP disponible puede no traer la
+ * extension mbstring cargada. Paso en una maquina real, con un
+ * "Call to undefined function mb_strlen()" justo en esta linea.
+ *
+ * Para exigir un minimo de longitud, contar bytes sobra: si la
+ * contrasena lleva acentos o emojis, contar bytes da MAS que contar
+ * caracteres, nunca menos, asi que el minimo se sigue respetando.
+ */
+if (strlen($pass) < 8) {
     exit("\n  Demasiado corta: minimo 8 caracteres.\n\n");
 }
 if (!preg_match('/[a-zA-Z]/', $pass) || !preg_match('/[0-9]/', $pass)) {
