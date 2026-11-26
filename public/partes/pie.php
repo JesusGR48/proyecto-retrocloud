@@ -63,5 +63,10 @@ $e = static fn(mixed $v): string => Validator::e($v);
          reproductor para no estorbar encima del juego. */ ?>
 <script type="module" src="<?= $e(recurso('assets/js/asistente.js')) ?>"></script>
 
+<?php /* Puntero y chispas. El propio modulo se abstiene en el
+         reproductor, en pantallas tactiles y si el sistema pide menos
+         movimiento. */ ?>
+<script type="module" src="<?= $e(recurso('assets/js/efectos.js')) ?>"></script>
+
 </body>
 </html>

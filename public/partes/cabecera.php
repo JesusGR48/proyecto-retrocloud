@@ -91,6 +91,11 @@ $e = static fn(mixed $v): string => Validator::e($v);
            larga que declara .htaccess. */ ?>
   <link rel="stylesheet" href="<?= $e(recurso('assets/css/estilos.css')) ?>">
 
+  <?php /* Capa de adorno: puntero, chispas, luces. Va DESPUES para poder
+           anadir sin tocar nada de lo anterior, y si se quita el sitio
+           sigue funcionando igual, solo que mas sobrio. */ ?>
+  <link rel="stylesheet" href="<?= $e(recurso('assets/css/efectos.css')) ?>">
+
   <script>
     /* Prefijo de rutas para el JavaScript. Las paginas de /admin viven
        un nivel mas abajo, asi que api.js necesita saberlo para no pedir

@@ -1,0 +1,382 @@
+/* =====================================================================
+   RetroCloud · Capa de efectos visuales
+   =====================================================================
+   Se carga DESPUES de estilos.css y solo anade: ningun selector de aqui
+   cambia la maqueta, el color de fondo ni el tamano de nada. Si este
+   archivo se quita, el sitio sigue funcionando exactamente igual, solo
+   que mas sobrio. Esa es la idea: que el adorno no sostenga nada.
+
+   Todo lo que se mueve esta apagado bajo
+   @media (prefers-reduced-motion: reduce), al final del archivo. No es
+   un detalle de cortesia: a quien tiene sensibilidad al movimiento, una
+   pantalla asi le provoca mareo de verdad.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. PUNTERO
+   ---------------------------------------------------------------------
+   Una mira de francotirador dibujada en SVG e incrustada en la propia
+   hoja: no hay peticion al servidor ni archivo que se pueda perder.
+
+   Los numeros al final ("12 12") son el punto activo: el centro exacto
+   de la mira. Sin eso, el clic ocurriria en la esquina superior
+   izquierda del dibujo y todo se sentiria descuadrado.
+   --------------------------------------------------------------------- */
+
+:root {
+  --mira: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><circle cx="12" cy="12" r="7" fill="none" stroke="%2300e5c0" stroke-width="1.5" opacity=".9"/><circle cx="12" cy="12" r="1.5" fill="%2300e5c0"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke="%2300e5c0" stroke-width="1.5" stroke-linecap="round"/></svg>') 12 12;
+
+  --mira-activa: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26"><circle cx="13" cy="13" r="8" fill="none" stroke="%237d5fff" stroke-width="2"/><circle cx="13" cy="13" r="2.5" fill="%237d5fff"/><path d="M13 1v4M13 21v4M1 13h4M21 13h4" stroke="%237d5fff" stroke-width="2" stroke-linecap="round"/></svg>') 13 13;
+}
+
+/* Solo en escritorio: en una pantalla tactil no hay puntero que cambiar,
+   y forzarlo solo gasta bateria dibujando algo que nadie ve. */
+@media (hover: hover) and (pointer: fine) {
+
+  body { cursor: var(--mira), auto; }
+
+  a, button, summary, label, select,
+  [role="button"], .juego, .reco__item, .tecla-hex, .lab-prog, .asis__chip {
+    cursor: var(--mira-activa), pointer;
+  }
+
+  input[type="text"], input[type="password"], input[type="email"],
+  input[type="search"], input[type="number"], textarea {
+    cursor: text;
+  }
+
+  /* -------------------------------------------------------------------
+     Halo que persigue al puntero.
+
+     Lo mueve efectos.js con una transformacion, nunca con left/top: una
+     transformacion la resuelve la tarjeta grafica sin rehacer la
+     maqueta, y asi el halo no cuesta nada aunque siga al raton a 60
+     fotogramas por segundo.
+     ------------------------------------------------------------------- */
+  .halo-puntero {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 26px;
+    height: 26px;
+    margin: -13px 0 0 -13px;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+                rgba(0, 229, 192, .45) 0%,
+                rgba(125, 95, 255, .22) 45%,
+                transparent 70%);
+    pointer-events: none;   /* jamas debe interceptar un clic */
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity .25s ease, width .18s ease, height .18s ease;
+    will-change: transform;
+  }
+
+  .halo-puntero.is-visible { opacity: 1; }
+
+  /* Sobre algo pulsable crece y cambia de color: el puntero avisa de
+     que hay accion antes de que la persona lo intente. */
+  .halo-puntero.is-activo {
+    width: 46px;
+    height: 46px;
+    margin: -23px 0 0 -23px;
+    background: radial-gradient(circle,
+                rgba(125, 95, 255, .4) 0%,
+                rgba(0, 229, 192, .18) 50%,
+                transparent 72%);
+  }
+
+  .halo-puntero.is-pulsando {
+    width: 18px;
+    height: 18px;
+    margin: -9px 0 0 -9px;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   2. CHISPAS AL HACER CLIC
+   ---------------------------------------------------------------------
+   efectos.js crea seis cuadritos y los lanza en abanico. Son elementos
+   normales con una animacion CSS, no un lienzo: para seis piezas que
+   viven medio segundo, montar un canvas seria mas codigo y mas gasto.
+
+   Cada chispa lleva su angulo en --ang y su distancia en --dist, que el
+   JavaScript calcula al crearla.
+   --------------------------------------------------------------------- */
+
+.chispa {
+  position: fixed;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 9998;
+  animation: chispa-vuela .55s cubic-bezier(.2, .7, .3, 1) forwards;
+}
+
+@keyframes chispa-vuela {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform:
+      translate(-50%, -50%)
+      translate(calc(cos(var(--ang)) * var(--dist)), calc(sin(var(--ang)) * var(--dist)))
+      rotate(220deg) scale(.2);
+    opacity: 0;
+  }
+}
+
+/* Onda circular que sale del punto exacto del clic. */
+.onda-clic {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border: 2px solid var(--acento);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9997;
+  animation: onda-expande .5s ease-out forwards;
+}
+
+@keyframes onda-expande {
+  0%   { transform: scale(1);  opacity: .8; }
+  100% { transform: scale(7);  opacity: 0; }
+}
+
+/* ---------------------------------------------------------------------
+   3. ETIQUETAS CON LUZ RGB
+   ---------------------------------------------------------------------
+   El borde de color que gira alrededor de las insignias.
+
+   El truco: un pseudo-elemento mas grande que la insignia, con un
+   gradiente conico girando, y la insignia encima tapando el centro. Solo
+   se ve el anillo de los bordes.
+
+   Se anima un angulo registrado con @property y no el gradiente entero,
+   porque un gradiente conico no se puede interpolar: sin esto el
+   navegador saltaria de un estado a otro en lugar de girar.
+   --------------------------------------------------------------------- */
+
+@property --giro {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.insignia {
+  position: relative;
+  isolation: isolate;   /* el anillo no se escapa a otros elementos */
+}
+
+.insignia::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--giro),
+    #ff3b6b, #ffb13b, #3bff8f, #00e5c0, #3b9bff, #7d5fff, #ff3b6b
+  );
+
+  /* Recorta el relleno y deja solo el marco: se pintan dos capas, una
+     recortada al contenido y otra a la caja, y se restan. */
+  -webkit-mask:
+     linear-gradient(#000 0 0) content-box,
+     linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+
+  animation: rgb-gira 4s linear infinite;
+  opacity: .9;
+  z-index: -1;
+}
+
+@keyframes rgb-gira {
+  to { --giro: 360deg; }
+}
+
+/* Las insignias que ya comunican un estado conservan su color fijo: el
+   arcoiris es decoracion, y encima de un error o un exito estorbaria el
+   mensaje. Solo giran las neutras. */
+.insignia--exito::before,
+.insignia--error::before,
+.insignia--alerta::before {
+  animation: none;
+  background: none;
+}
+
+/* ---------------------------------------------------------------------
+   4. BOTONES
+   --------------------------------------------------------------------- */
+
+.btn {
+  position: relative;
+  overflow: hidden;
+  transition: transform 140ms cubic-bezier(.3, .8, .4, 1),
+              box-shadow 200ms ease,
+              filter 200ms ease;
+}
+
+/* Destello que cruza el boton al pasar por encima. */
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg,
+              transparent 20%,
+              rgba(255, 255, 255, .22) 50%,
+              transparent 80%);
+  transform: translateX(-120%);
+  transition: transform .55s cubic-bezier(.3, .8, .4, 1);
+  pointer-events: none;
+}
+
+.btn:hover::after,
+.btn:focus-visible::after { transform: translateX(120%); }
+
+.btn--primario:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(125, 95, 255, .45);
+}
+
+.btn--acento:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(0, 229, 192, .4);
+}
+
+/* Al pulsar, el boton se hunde. Es el eco visual del clic y hace que la
+   interfaz se sienta solida en vez de pintada. */
+.btn:active { transform: translateY(1px) scale(.985); }
+
+/* ---------------------------------------------------------------------
+   5. TARJETAS DEL CATALOGO
+   --------------------------------------------------------------------- */
+
+.juego {
+  position: relative;
+  transition: transform 220ms cubic-bezier(.3, .8, .4, 1),
+              box-shadow 220ms ease,
+              border-color 220ms ease;
+}
+
+.juego:hover,
+.juego:focus-within {
+  transform: translateY(-6px);
+  border-color: var(--primario);
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, .5),
+    0 0 0 1px rgba(125, 95, 255, .5),
+    0 0 26px rgba(125, 95, 255, .3);
+}
+
+/* Barrido de luz sobre la portada. */
+.juego__portada { position: relative; overflow: hidden; }
+
+.juego__portada::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg,
+              transparent 35%,
+              rgba(0, 229, 192, .2) 50%,
+              transparent 65%);
+  transform: translateX(-130%);
+  transition: transform .7s cubic-bezier(.3, .8, .4, 1);
+  pointer-events: none;
+}
+
+.juego:hover .juego__portada::after { transform: translateX(130%); }
+
+/* ---------------------------------------------------------------------
+   6. TITULO DEL HERO
+   --------------------------------------------------------------------- */
+
+.hero h1 {
+  text-shadow:
+    0 0 18px rgba(125, 95, 255, .35),
+    0 0 42px rgba(0, 229, 192, .12);
+}
+
+/* Linea de luz que recorre el hero por debajo, muy despacio. */
+.hero::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+              transparent, var(--primario), var(--acento), transparent);
+  background-size: 50% 100%;
+  animation: barrido-hero 7s linear infinite;
+  opacity: .7;
+  pointer-events: none;
+}
+
+@keyframes barrido-hero {
+  0%   { background-position: -120% 0; }
+  100% { background-position: 220% 0; }
+}
+
+/* ---------------------------------------------------------------------
+   7. PASTILLAS DE CONSOLA Y CAMPOS
+   --------------------------------------------------------------------- */
+
+.consolas-fila .btn,
+.pastilla {
+  transition: transform 160ms ease, box-shadow 200ms ease;
+}
+
+.consolas-fila .btn:hover { transform: translateY(-2px) scale(1.03); }
+
+input[type="text"]:focus-visible,
+input[type="search"]:focus-visible,
+input[type="password"]:focus-visible,
+input[type="email"]:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  box-shadow: 0 0 0 3px rgba(125, 95, 255, .22),
+              0 0 18px rgba(125, 95, 255, .18);
+}
+
+/* ---------------------------------------------------------------------
+   8. ACCESIBILIDAD
+   ---------------------------------------------------------------------
+   Todo lo que se mueve se apaga aqui. Se conservan los cambios de color
+   y de sombra, que informan sin provocar mareo.
+   --------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .insignia::before { animation: none; }
+  .hero::after      { animation: none; opacity: .4; }
+
+  .btn,
+  .juego,
+  .consolas-fila .btn { transition: box-shadow 200ms ease, border-color 200ms ease; }
+
+  .btn:hover,
+  .btn:active,
+  .juego:hover,
+  .consolas-fila .btn:hover { transform: none; }
+
+  .btn::after,
+  .juego__portada::after { display: none; }
+
+  .chispa,
+  .onda-clic { display: none; }
+
+  .halo-puntero { display: none; }
+}
+
+/* Al imprimir no hay punteros ni chispas que valgan. */
+@media print {
+  .halo-puntero,
+  .chispa,
+  .onda-clic { display: none !important; }
+  .insignia::before { display: none; }
+}
